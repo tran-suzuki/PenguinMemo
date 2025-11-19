@@ -1,3 +1,4 @@
+
 export enum Category {
   FILE_SYSTEM = 'File System',
   NETWORK = 'Network',
@@ -47,6 +48,12 @@ export interface ServerCommandLog {
   threadId: string;
   command: string;
   output?: string;
+  note?: string;
+  user?: string;      // Execution user
+  directory?: string; // Execution directory
+  fileContentBefore?: string; // For editor commands (vi, nano)
+  fileContentAfter?: string;  // For editor commands
+  order: number;
   createdAt: number;
 }
 

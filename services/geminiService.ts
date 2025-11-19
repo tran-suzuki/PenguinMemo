@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, GeminiResponse } from "../types";
 
@@ -44,6 +45,33 @@ export const generateLinuxCommand = async (query: string): Promise<GeminiRespons
     return result;
   } catch (error) {
     console.error("Gemini API Error:", error);
+    throw error;
+  }
+};
+
+export const generateLogNote = async (command: string, output: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+        You are a DevOps assistant helping to document server operations.
+        Analyze the following Linux command and its execution output.
+        
+        Command: ${command}
+        Output (truncated): ${output ? output.slice(0, 1000) : '(No output)'}
+        
+        Task:
+        Provide a concise Japanese summary (remark/note) explaining the purpose of this command and what the result indicates.
+        Focus on the "intent" and "outcome".
+        
+        Format:
+        Just the text for the note. Keep it short (1-2 sentences).
+      `,
+    });
+
+    return response.text || "";
+  } catch (error) {
+    console.error("Gemini API Error (generateLogNote):", error);
     throw error;
   }
 };
