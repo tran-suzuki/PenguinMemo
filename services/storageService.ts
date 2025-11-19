@@ -1,11 +1,11 @@
 
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  BackupData, 
-  CommandItem, 
-  ServerItem, 
-  ServerThread, 
-  ServerCommandLog 
+import {
+  BackupData,
+  CommandItem,
+  ServerItem,
+  ServerThread,
+  ServerCommandLog
 } from '../types';
 
 // --- Backup / Restore Logic ---
@@ -76,31 +76,33 @@ export const processImportData = (data: BackupData) => {
   });
 
   // Process Threads (update serverId reference)
-  const newThreads = data.threads.map(thread => {
-    const newId = uuidv4();
-    threadIdMap.set(thread.id, newId);
-    const newServerId = serverIdMap.get(thread.serverId);
-    
-    // If parent server isn't in this backup, keep original ID (might correspond to existing server if we were doing a merge, but for now we assume import brings its own parents or creates new ones)
-    // Ideally imports should be self-contained.
-    
-    return { 
-      ...thread, 
-      id: newId, 
-      serverId: newServerId || thread.serverId 
-    };
-  }).filter(t => serverIdMap.has(t.serverId)); // Only keep threads for servers we just imported
+  // Process Threads (update serverId reference)
+  const newThreads = data.threads
+    .filter(thread => serverIdMap.has(thread.serverId))
+    .map(thread => {
+      const newId = uuidv4();
+      threadIdMap.set(thread.id, newId);
+      const newServerId = serverIdMap.get(thread.serverId)!;
+
+      return {
+        ...thread,
+        id: newId,
+        serverId: newServerId
+      };
+    });
 
   // Process Logs (update threadId reference)
-  const newLogs = data.logs.map(log => {
-    const newId = uuidv4();
-    const newThreadId = threadIdMap.get(log.threadId);
-    return {
-      ...log,
-      id: newId,
-      threadId: newThreadId || log.threadId
-    };
-  }).filter(l => threadIdMap.has(l.threadId)); // Only keep logs for threads we just imported
+  const newLogs = data.logs
+    .filter(log => threadIdMap.has(log.threadId))
+    .map(log => {
+      const newId = uuidv4();
+      const newThreadId = threadIdMap.get(log.threadId)!;
+      return {
+        ...log,
+        id: newId,
+        threadId: newThreadId
+      };
+    });
 
   return {
     commands: newCommands,
@@ -119,7 +121,7 @@ export const exportThreadToMarkdown = (
 ) => {
   const sortedLogs = [...logs].sort((a, b) => (a.order || 0) - (b.order || 0));
   const dateStr = new Date(thread.createdAt).toLocaleDateString();
-  
+
   let md = `# ${thread.title}\n`;
   md += `**Server:** ${server.name} (${server.host})\n`;
   md += `**Date:** ${dateStr}\n`;
@@ -128,9 +130,9 @@ export const exportThreadToMarkdown = (
 
   sortedLogs.forEach(log => {
     const time = new Date(log.createdAt).toLocaleTimeString();
-    
+
     md += `### ${time}\n\n`;
-    
+
     // Note
     if (log.note) {
       md += `> **Note:** ${log.note}\n\n`;
@@ -149,13 +151,13 @@ export const exportThreadToMarkdown = (
 
     // Output or Diff
     if (log.fileContentBefore || log.fileContentAfter) {
-       md += "**File Change (Diff):**\n";
-       md += "<details><summary>Before</summary>\n\n";
-       md += "```\n" + (log.fileContentBefore || '') + "\n```\n";
-       md += "</details>\n";
-       md += "<details><summary>After</summary>\n\n";
-       md += "```\n" + (log.fileContentAfter || '') + "\n```\n";
-       md += "</details>\n\n";
+      md += "**File Change (Diff):**\n";
+      md += "<details><summary>Before</summary>\n\n";
+      md += "```\n" + (log.fileContentBefore || '') + "\n```\n";
+      md += "</details>\n";
+      md += "<details><summary>After</summary>\n\n";
+      md += "```\n" + (log.fileContentAfter || '') + "\n```\n";
+      md += "</details>\n\n";
     } else if (log.output) {
       md += "**Output:**\n";
       md += "```\n";
@@ -176,10 +178,10 @@ export const exportThreadToCsv = (
   logs: ServerCommandLog[]
 ) => {
   const sortedLogs = [...logs].sort((a, b) => (a.order || 0) - (b.order || 0));
-  
+
   // CSV Header
   const header = ['Timestamp', 'User', 'Directory', 'Command', 'Output', 'Note', 'FileContentBefore', 'FileContentAfter'];
-  
+
   // Escape CSV fields
   const escapeCsv = (str: string | undefined) => {
     if (!str) return '""';
@@ -201,7 +203,7 @@ export const exportThreadToCsv = (
   });
 
   const csvContent = [header.join(','), ...rows].join('\n');
-  
+
   // Add BOM for Excel compatibility
   const bom = '\uFEFF';
   const filename = `${server.name}_${thread.title}.csv`.replace(/[\/\?<>\\:\*\|":]/g, '_');
