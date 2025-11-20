@@ -39,6 +39,7 @@ export interface ServerThread {
   id: string;
   serverId: string;
   title: string;
+  order?: number; // Optional for backward compatibility
   createdAt: number;
   updatedAt: number;
 }

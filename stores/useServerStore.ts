@@ -18,14 +18,16 @@ interface ServerState {
 
   // Actions - Threads
   addThread: (serverId: string, title: string) => void;
+  updateThread: (threadId: string, updates: Partial<ServerThread>) => void;
+  reorderThreads: (activeId: string, overId: string) => void;
   deleteThread: (threadId: string) => void;
 
   // Actions - Logs
   addLog: (
-    threadId: string, 
-    command: string, 
-    output: string, 
-    user?: string, 
+    threadId: string,
+    command: string,
+    output: string,
+    user?: string,
     directory?: string,
     fileContentBefore?: string,
     fileContentAfter?: string
@@ -57,7 +59,7 @@ export const useServerStore = create<ServerState>()(
       })),
 
       updateServer: (id, draft) => set((state) => ({
-        servers: state.servers.map(srv => 
+        servers: state.servers.map(srv =>
           srv.id === id ? { ...srv, ...draft, updatedAt: Date.now() } : srv
         )
       })),
@@ -66,20 +68,64 @@ export const useServerStore = create<ServerState>()(
         servers: state.servers.filter(srv => srv.id !== id),
         threads: state.threads.filter(t => t.serverId !== id),
         logs: state.logs.filter(l => {
-           const thread = state.threads.find(t => t.id === l.threadId);
-           return thread && thread.serverId !== id;
+          const thread = state.threads.find(t => t.id === l.threadId);
+          return thread && thread.serverId !== id;
         })
       })),
 
-      addThread: (serverId, title) => set((state) => ({
-        threads: [{
-          id: uuidv4(),
-          serverId,
-          title,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        }, ...state.threads]
+      addThread: (serverId, title) => set((state) => {
+        const serverThreads = state.threads.filter(t => t.serverId === serverId);
+        const maxOrder = serverThreads.length > 0
+          ? Math.max(...serverThreads.map(t => t.order ?? 0))
+          : -1;
+
+        return {
+          threads: [{
+            id: uuidv4(),
+            serverId,
+            title,
+            order: maxOrder + 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }, ...state.threads]
+        };
+      }),
+
+      updateThread: (threadId, updates) => set((state) => ({
+        threads: state.threads.map(t =>
+          t.id === threadId ? { ...t, ...updates, updatedAt: Date.now() } : t
+        )
       })),
+
+      reorderThreads: (activeId, overId) => set((state) => {
+        const threads = [...state.threads];
+        const activeIndex = threads.findIndex(t => t.id === activeId);
+        const overIndex = threads.findIndex(t => t.id === overId);
+
+        if (activeIndex !== -1 && overIndex !== -1) {
+          const serverId = threads[activeIndex].serverId;
+          // Filter threads for the same server and sort them by current order
+          const serverThreads = threads
+            .filter(t => t.serverId === serverId)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+          const oldIndex = serverThreads.findIndex(t => t.id === activeId);
+          const newIndex = serverThreads.findIndex(t => t.id === overId);
+
+          const [movedItem] = serverThreads.splice(oldIndex, 1);
+          serverThreads.splice(newIndex, 0, movedItem);
+
+          // Update order for all threads in this server
+          serverThreads.forEach((thread, index) => {
+            thread.order = index;
+          });
+
+          // Merge back into main threads array
+          const otherThreads = threads.filter(t => t.serverId !== serverId);
+          return { threads: [...otherThreads, ...serverThreads] };
+        }
+        return { threads };
+      }),
 
       deleteThread: (threadId) => set((state) => ({
         threads: state.threads.filter(t => t.id !== threadId),
@@ -89,8 +135,8 @@ export const useServerStore = create<ServerState>()(
       addLog: (threadId, command, output, user, directory, fileContentBefore, fileContentAfter) => set((state) => {
         // Calculate next order
         const threadLogs = state.logs.filter(l => l.threadId === threadId);
-        const maxOrder = threadLogs.length > 0 
-          ? Math.max(...threadLogs.map(l => l.order || 0)) 
+        const maxOrder = threadLogs.length > 0
+          ? Math.max(...threadLogs.map(l => l.order || 0))
           : -1;
 
         return {
@@ -111,8 +157,8 @@ export const useServerStore = create<ServerState>()(
 
       addLogs: (threadId, entries) => set((state) => {
         const threadLogs = state.logs.filter(l => l.threadId === threadId);
-        let currentMaxOrder = threadLogs.length > 0 
-          ? Math.max(...threadLogs.map(l => l.order || 0)) 
+        let currentMaxOrder = threadLogs.length > 0
+          ? Math.max(...threadLogs.map(l => l.order || 0))
           : -1;
 
         const newLogs: ServerCommandLog[] = entries.map(entry => {
@@ -148,22 +194,22 @@ export const useServerStore = create<ServerState>()(
         const overIndex = logs.findIndex(l => l.id === overId);
 
         if (activeIndex !== -1 && overIndex !== -1) {
-           // Note: This assumes we are sorting logs within the same thread view.
-           const threadId = logs[activeIndex].threadId;
-           const threadLogs = logs.filter(l => l.threadId === threadId).sort((a, b) => (a.order || 0) - (b.order || 0));
-           
-           const oldIndex = threadLogs.findIndex(l => l.id === activeId);
-           const newIndex = threadLogs.findIndex(l => l.id === overId);
-           
-           const [movedItem] = threadLogs.splice(oldIndex, 1);
-           threadLogs.splice(newIndex, 0, movedItem);
+          // Note: This assumes we are sorting logs within the same thread view.
+          const threadId = logs[activeIndex].threadId;
+          const threadLogs = logs.filter(l => l.threadId === threadId).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-           threadLogs.forEach((log, index) => {
-             log.order = index;
-           });
+          const oldIndex = threadLogs.findIndex(l => l.id === activeId);
+          const newIndex = threadLogs.findIndex(l => l.id === overId);
 
-           const otherLogs = logs.filter(l => l.threadId !== threadId);
-           return { logs: [...otherLogs, ...threadLogs] };
+          const [movedItem] = threadLogs.splice(oldIndex, 1);
+          threadLogs.splice(newIndex, 0, movedItem);
+
+          threadLogs.forEach((log, index) => {
+            log.order = index;
+          });
+
+          const otherLogs = logs.filter(l => l.threadId !== threadId);
+          return { logs: [...otherLogs, ...threadLogs] };
         }
         return { logs };
       }),
