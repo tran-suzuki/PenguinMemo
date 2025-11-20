@@ -1,8 +1,9 @@
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { ServerItem, ServerDraft, ServerThread, ServerCommandLog } from '../types';
+import { idbStorage } from '../services/indexedDBService';
 
 interface ServerState {
   servers: ServerItem[];
@@ -218,6 +219,7 @@ export const useServerStore = create<ServerState>()(
     }),
     {
       name: 'penguin-memo-server-store',
+      storage: createJSONStorage(() => idbStorage),
     }
   )
 );
