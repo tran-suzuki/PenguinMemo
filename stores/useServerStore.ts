@@ -15,7 +15,7 @@ interface ServerState {
   // Actions - Server
   setProjectFilter: (project: string | 'All') => void;
   addServer: (draft: ServerDraft) => void;
-  updateServer: (id: string, draft: ServerDraft) => void;
+  updateServer: (id: string, draft: Partial<ServerDraft>) => void;
   deleteServer: (id: string) => void;
 
   // Actions - Threads

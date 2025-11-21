@@ -8,6 +8,7 @@ interface ConfigListProps {
     onSelectConfig: (id: string) => void;
     onCreateConfig: () => void;
     onDeleteConfig: (id: string) => void;
+    isSearching?: boolean;
 }
 
 interface TreeNode {
@@ -24,7 +25,8 @@ export const ConfigList: React.FC<ConfigListProps> = ({
     activeConfigId,
     onSelectConfig,
     onCreateConfig,
-    onDeleteConfig
+    onDeleteConfig,
+    isSearching
 }) => {
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
@@ -79,6 +81,25 @@ export const ConfigList: React.FC<ConfigListProps> = ({
         sortNodes(root);
         return root;
     }, [configs]);
+
+    // Auto-expand when searching
+    React.useEffect(() => {
+        if (isSearching) {
+            const getAllFolderPaths = (nodes: TreeNode[]): string[] => {
+                let paths: string[] = [];
+                nodes.forEach(node => {
+                    if (node.type === 'folder') {
+                        paths.push(node.path);
+                        if (node.children) {
+                            paths = [...paths, ...getAllFolderPaths(node.children)];
+                        }
+                    }
+                });
+                return paths;
+            };
+            setExpandedFolders(new Set(getAllFolderPaths(tree)));
+        }
+    }, [tree, isSearching]);
 
     const toggleFolder = (path: string) => {
         setExpandedFolders(prev => {

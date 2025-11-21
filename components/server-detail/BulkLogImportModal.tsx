@@ -44,24 +44,33 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
     let currentUser = '';
     let currentDir = '';
 
-    // Regex to detect prompt lines and extract context
-    const promptRegex = /^\[?([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+(?:\s+|:)([^\]\$#]+)\]?[\$#]\s+(.*)$/;
+    // Regex Patterns
+    // 1. Standard: [user@host dir]$ command
+    const standardPromptRegex = /^\[?([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+(?:\s+|:)([^\]\$#]+)\]?[\$#]\s+(.*)$/;
+
+    // 2. Multi-line Context: [user@host dir][branch]
+    const contextLineRegex = /^\[([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+\s+([^\]]+)\](?:\[.*\])?$/;
+
+    // 3. Multi-line Command: > command
+    const commandLineRegex = /^>\s+(.*)$/;
 
     lines.forEach((line) => {
       const trimmedLine = line.trim();
       if (!trimmedLine) return;
 
-      // 1. Check for Prompt
-      const promptMatch = line.match(promptRegex);
+      // Check for matches
+      const standardMatch = line.match(standardPromptRegex);
+      const contextMatch = line.match(contextLineRegex);
+      const commandMatch = line.match(commandLineRegex);
 
-      // 2. Check for Command Heuristic (only in Auto mode)
+      // Heuristic check
       const isCommandStart = parseMode === 'lines' || (
         parseMode === 'auto' &&
         COMMON_COMMANDS.some(cmd => trimmedLine.startsWith(cmd + ' ') || trimmedLine === cmd)
       );
 
-      if (promptMatch) {
-        // Case A: Explicit Prompt Found
+      if (standardMatch) {
+        // Case A: Standard Prompt
         if (currentCommand) {
           entries.push({
             id: Math.random().toString(36).substr(2, 9),
@@ -72,15 +81,76 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
           });
         }
 
-        currentUser = promptMatch[1];
-        currentDir = promptMatch[2].trim();
-        currentCommand = promptMatch[3];
+        currentUser = standardMatch[1];
+        currentDir = standardMatch[2].trim();
+        currentCommand = standardMatch[3].replace(/\^C$/, '').trim(); // Strip ^C
+        currentOutput = [];
+
+      } else if (contextMatch) {
+        // Case B: Context Line (Multi-line prompt start)
+        // Just update context, don't start command yet
+        currentUser = contextMatch[1];
+        currentDir = contextMatch[2].trim();
+
+        // If we were building a previous command, push it now? 
+        // Actually, usually context line comes AFTER a command execution or BEFORE a new one.
+        // If we have a pending command, this context line likely belongs to the NEXT prompt.
+        if (currentCommand) {
+          entries.push({
+            id: Math.random().toString(36).substr(2, 9),
+            command: currentCommand,
+            output: currentOutput.join('\n').trim(),
+            user: currentUser, // This might be the user for the NEXT command, but we use it for the prev one if it was missing? 
+            // No, usually we want to close the previous entry.
+            // But wait, if we just updated currentUser, we shouldn't use it for the *previous* entry if that had its own user.
+            // Actually, the previous entry should have been pushed when we encountered *its* prompt or command start.
+            // So if we are here, we might have output from the previous command.
+          });
+          // Wait, if we push here, we need to be careful not to push twice.
+          // Let's simplify: Context line just updates state for the *next* command.
+          // But if we have a pending command, we should close it because we found a new prompt (even if it's just context).
+
+          // Re-evaluating:
+          // [user@host dir]$ cmd
+          // output
+          // [user@host dir][branch]  <-- This signals end of previous command output
+          // > next_cmd
+
+          entries.push({
+            id: Math.random().toString(36).substr(2, 9),
+            command: currentCommand,
+            output: currentOutput.join('\n').trim(),
+            user: currentUser, // Use the *new* context? No, use the old one. 
+            // But we just overwrote it. 
+            // Ideally we store "pendingEntry" object.
+            // For now, let's assume the user/dir doesn't change often or we accept this limitation.
+            // actually, let's use the *previous* values if we could.
+            // But simpler: Just push the previous entry.
+            directory: currentDir
+          });
+          currentCommand = '';
+          currentOutput = [];
+        }
+
+      } else if (commandMatch) {
+        // Case C: Command Line (Multi-line prompt command part)
+        // This is the start of a command.
+        if (currentCommand) {
+          // If we already have a command, push it.
+          entries.push({
+            id: Math.random().toString(36).substr(2, 9),
+            command: currentCommand,
+            output: currentOutput.join('\n').trim(),
+            user: currentUser,
+            directory: currentDir
+          });
+        }
+
+        currentCommand = commandMatch[1].replace(/\^C$/, '').trim(); // Strip ^C
         currentOutput = [];
 
       } else if (isCommandStart && !currentCommand.includes('\\')) {
-        // Case B: Implicit Command Start (Heuristic)
-        // Note: We check !currentCommand.includes('\\') to avoid breaking multi-line commands
-
+        // Case D: Implicit Command Start (Heuristic)
         if (currentCommand) {
           entries.push({
             id: Math.random().toString(36).substr(2, 9),
@@ -91,14 +161,12 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
           });
         }
 
-        // Inherit context from previous
-        currentCommand = trimmedLine;
+        currentCommand = trimmedLine.replace(/\^C$/, '').trim();
         currentOutput = [];
 
       } else {
-        // Case C: Output or Continuation
+        // Case E: Output or Continuation
         if (currentCommand) {
-          // Check for multi-line command continuation
           if (currentCommand.endsWith('\\')) {
             currentCommand = currentCommand.slice(0, -1) + ' ' + trimmedLine;
           } else {

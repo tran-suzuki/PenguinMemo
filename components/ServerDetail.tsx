@@ -16,9 +16,10 @@ import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageSe
 interface ServerDetailProps {
   server: ServerItem;
   onBack: () => void;
+  onUpdate: (updates: Partial<ServerItem>) => void;
 }
 
-export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) => {
+export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUpdate }) => {
   // Connect to Server Store
   const {
     threads, logs, configs,
@@ -155,7 +156,10 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
   return (
     <div className="flex flex-col h-full bg-slate-950">
       {/* Header */}
-      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900 shrink-0 z-20">
+      <header
+        className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900 shrink-0 z-20"
+        style={{ borderBottomColor: server.themeColor ? `${server.themeColor}40` : undefined }}
+      >
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors">
             <ArrowLeft size={20} />
@@ -176,6 +180,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
                 }`}
+              style={viewMode === 'logs' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
             >
               Logs
             </button>
@@ -185,17 +190,42 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
                 }`}
+              style={viewMode === 'configs' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
             >
               Configs
             </button>
           </div>
 
           <div>
-            <h2 className="font-bold text-white flex items-center gap-2">
-              <Terminal size={18} className="text-blue-400" />
+            <h2 className="font-bold text-white flex items-center gap-2 group relative">
+              <div className="relative">
+                <Terminal size={18} style={{ color: server.themeColor || '#60a5fa' }} />
+                <input
+                  type="color"
+                  value={server.themeColor || '#60a5fa'}
+                  onChange={(e) => onUpdate({ themeColor: e.target.value })}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  title="テーマカラーを変更"
+                />
+              </div>
               {server.name}
             </h2>
-            <div className="text-xs text-slate-500 font-mono">{server.username}@{server.host}</div>
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-slate-500 font-mono">{server.username}@{server.host}</div>
+              {server.envInfo && server.envInfo.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <div className="w-[1px] h-3 bg-slate-700 mx-1"></div>
+                  {server.envInfo.slice(0, 3).map((env, i) => (
+                    <span key={i} className="text-[10px] text-slate-400 bg-slate-800 px-1 rounded border border-slate-700/50">
+                      {env.key}: {env.value}
+                    </span>
+                  ))}
+                  {server.envInfo.length > 3 && (
+                    <span className="text-[10px] text-slate-600">...</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -395,6 +425,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
                 setActiveConfigId(null);
               }}
               onDeleteConfig={deleteConfig}
+              isSearching={!!searchQuery}
             />
           )
         )}

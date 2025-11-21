@@ -38,7 +38,10 @@ export const ServerCard: React.FC<ServerCardProps> = ({ item, onDelete, onEdit, 
   };
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-blue-500/30 transition-all group flex flex-col h-full relative overflow-hidden">
+    <div
+      className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 transition-all group flex flex-col h-full relative overflow-hidden hover:shadow-lg hover:shadow-blue-900/10"
+      style={{ borderColor: item.themeColor ? `${item.themeColor}40` : undefined }} // 40 is hex alpha for 25%
+    >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
@@ -53,7 +56,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({ item, onDelete, onEdit, 
             ))}
           </div>
           <h3 className="font-bold text-lg text-slate-100 flex items-center gap-2">
-            <Server size={18} className="text-blue-400" />
+            <Server size={18} style={{ color: item.themeColor || '#60a5fa' }} />
             {item.name}
           </h3>
         </div>
@@ -72,6 +75,21 @@ export const ServerCard: React.FC<ServerCardProps> = ({ item, onDelete, onEdit, 
           </button>
         </div>
       </div>
+
+      {/* Env Info Summary */}
+      {item.envInfo && item.envInfo.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {item.envInfo.slice(0, 3).map((env, idx) => (
+            <div key={idx} className="text-[10px] bg-slate-900/80 border border-slate-700/50 rounded px-1.5 py-0.5 flex items-center gap-1 text-slate-400">
+              <span className="font-bold text-slate-500">{env.key}:</span>
+              <span className="font-mono text-slate-300">{env.value}</span>
+            </div>
+          ))}
+          {item.envInfo.length > 3 && (
+            <span className="text-[10px] text-slate-600 flex items-center">+{item.envInfo.length - 3}</span>
+          )}
+        </div>
+      )}
 
       {/* Connection Info Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4 text-sm">

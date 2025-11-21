@@ -35,6 +35,8 @@ export interface ServerItem {
   controlPanelUrl?: string;
   controlPanelUser?: string;
   controlPanelPassword?: string;
+  envInfo?: { key: string; value: string; }[];
+  themeColor?: string;
   updatedAt: number;
 }
 

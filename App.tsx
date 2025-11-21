@@ -60,6 +60,7 @@ export default function App() {
         <ServerDetail
           server={activeServer}
           onBack={() => selectServer(null)}
+          onUpdate={(updates) => updateServer(activeServer.id, updates)}
         />
       </div>
     );
