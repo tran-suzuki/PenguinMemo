@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
 import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff } from 'lucide-react';
@@ -11,6 +10,7 @@ import { BulkConfigImportModal } from './server-detail/BulkConfigImportModal';
 import { SearchResults } from './server-detail/SearchResults';
 import { ConfigList } from './server-detail/ConfigList';
 import { ConfigEditor } from './server-detail/ConfigEditor';
+import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -433,11 +433,21 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
         {/* Main Content */}
         <main className="flex-1 flex flex-col bg-[#0c0c0c] relative overflow-hidden">
           {viewMode === 'configs' ? (
-            <ConfigEditor
-              config={activeConfigId ? serverConfigs.find(c => c.id === activeConfigId) || null : null}
-              onSave={handleSaveConfig}
-              isNew={isCreatingConfig}
-            />
+            searchQuery ? (
+              <ConfigSearchResults
+                results={filteredConfigs}
+                onSelect={(id) => {
+                  setActiveConfigId(id);
+                  setSearchQuery('');
+                }}
+              />
+            ) : (
+              <ConfigEditor
+                config={activeConfigId ? serverConfigs.find(c => c.id === activeConfigId) || null : null}
+                onSave={handleSaveConfig}
+                isNew={isCreatingConfig}
+              />
+            )
           ) : searchQuery ? (
             <SearchResults
               results={searchResults}

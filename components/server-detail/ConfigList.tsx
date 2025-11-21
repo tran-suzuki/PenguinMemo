@@ -144,6 +144,11 @@ export const ConfigList: React.FC<ConfigListProps> = ({
         }
     };
 
+    // Sort configs for list view
+    const sortedConfigs = useMemo(() => {
+        return [...configs].sort((a, b) => a.path.localeCompare(b.path));
+    }, [configs]);
+
     const renderNode = (node: TreeNode, level: number) => {
         const isExpanded = expandedFolders.has(node.path);
         const isActive = node.configId === activeConfigId;
@@ -197,26 +202,34 @@ export const ConfigList: React.FC<ConfigListProps> = ({
     return (
         <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
             <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Configs</span>
-                <button
-                    onClick={onCreateConfig}
-                    className="text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded transition-colors"
-                    title="新規設定ファイル"
-                >
-                    <Plus size={16} />
-                </button>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {isSearching ? 'Search Results' : 'Configs'}
+                </span>
+                {!isSearching && (
+                    <button
+                        onClick={onCreateConfig}
+                        className="text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded transition-colors"
+                        title="新規設定ファイル"
+                    >
+                        <Plus size={16} />
+                    </button>
+                )}
             </div>
             <div className="flex-1 overflow-y-auto py-2">
                 {configs.length === 0 ? (
                     <div className="text-center py-8 px-4">
                         <Settings size={24} className="mx-auto text-slate-700 mb-2" />
-                        <p className="text-xs text-slate-600">設定ファイルがありません</p>
-                        <button
-                            onClick={onCreateConfig}
-                            className="mt-2 text-xs text-blue-500 hover:text-blue-400"
-                        >
-                            作成する
-                        </button>
+                        <p className="text-xs text-slate-600">
+                            {isSearching ? '見つかりませんでした' : '設定ファイルがありません'}
+                        </p>
+                        {!isSearching && (
+                            <button
+                                onClick={onCreateConfig}
+                                className="mt-2 text-xs text-blue-500 hover:text-blue-400"
+                            >
+                                作成する
+                            </button>
+                        )}
                     </div>
                 ) : (
                     tree.map(node => renderNode(node, 0))
