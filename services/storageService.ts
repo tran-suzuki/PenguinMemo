@@ -5,7 +5,8 @@ import {
   CommandItem,
   ServerItem,
   ServerThread,
-  ServerCommandLog
+  ServerCommandLog,
+  ServerConfig
 } from '../types';
 
 // --- Backup / Restore Logic ---
@@ -14,7 +15,8 @@ export const exportData = (
   commands: CommandItem[],
   servers: ServerItem[],
   threads: ServerThread[],
-  logs: ServerCommandLog[]
+  logs: ServerCommandLog[],
+  configs: ServerConfig[] = []
 ): string => {
   const data: BackupData = {
     version: 1,
@@ -22,7 +24,8 @@ export const exportData = (
     commands,
     servers,
     threads,
-    logs
+    logs,
+    configs
   };
   return JSON.stringify(data, null, 2);
 };
@@ -51,6 +54,7 @@ export const validateBackupData = (data: any): data is BackupData => {
     Array.isArray(data.servers) &&
     Array.isArray(data.threads) &&
     Array.isArray(data.logs)
+    // configs is optional in older backups, so we don't strictly check it
   );
 };
 
@@ -60,6 +64,7 @@ export const processImportData = (data: BackupData) => {
   const commandIdMap = new Map<string, string>();
   const serverIdMap = new Map<string, string>();
   const threadIdMap = new Map<string, string>();
+  const configIdMap = new Map<string, string>();
 
   // Process Commands
   const newCommands = data.commands.map(cmd => {
@@ -104,11 +109,26 @@ export const processImportData = (data: BackupData) => {
       };
     });
 
+  // Process Configs (update serverId reference)
+  const newConfigs = (data.configs || [])
+    .filter(config => serverIdMap.has(config.serverId))
+    .map(config => {
+      const newId = uuidv4();
+      configIdMap.set(config.id, newId);
+      const newServerId = serverIdMap.get(config.serverId)!;
+      return {
+        ...config,
+        id: newId,
+        serverId: newServerId
+      };
+    });
+
   return {
     commands: newCommands,
     servers: newServers,
     threads: newThreads,
-    logs: newLogs
+    logs: newLogs,
+    configs: newConfigs
   };
 };
 

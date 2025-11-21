@@ -3,6 +3,7 @@ import { X, Download, Upload, Database, AlertCircle, CheckCircle2 } from 'lucide
 import { useCommandStore } from '../features/commands/stores/useCommandStore';
 import { useServerStore } from '../features/servers/stores/useServerStore';
 import { useLogStore } from '../features/command-logs/stores/useLogStore';
+import { useConfigStore } from '../features/configs/stores/useConfigStore';
 import { exportData, downloadBackup, validateBackupData, processImportData } from '../services/storageService';
 
 interface SettingsModalProps {
@@ -18,12 +19,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const { commands, importCommands } = useCommandStore();
   const { servers, importServers } = useServerStore();
   const { threads, logs, importLogsData } = useLogStore();
+  const { configs, importConfigs } = useConfigStore();
 
   if (!isOpen) return null;
 
   const handleExport = () => {
     try {
-      const json = exportData(commands, servers, threads, logs);
+      const json = exportData(commands, servers, threads, logs, configs);
       const dateStr = new Date().toISOString().split('T')[0];
       downloadBackup(json, `penguin-memo-backup-${dateStr}.json`);
       setMessage({ type: 'success', text: 'エクスポートが完了しました' });
@@ -52,13 +54,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           commands: newCmds,
           servers: newSrvs,
           threads: newThreads,
-          logs: newLogs
+          logs: newLogs,
+          configs: newConfigs
         } = processImportData(json);
 
         // Merge strategy: Append imported data to existing data
         importCommands([...commands, ...newCmds]);
         importServers([...servers, ...newSrvs]);
         importLogsData([...threads, ...newThreads], [...logs, ...newLogs]);
+        importConfigs([...configs, ...(newConfigs || [])]);
 
         setMessage({ type: 'success', text: `インポート成功: コマンド${newCmds.length}件, サーバー${newSrvs.length}件` });
       } catch (err) {

@@ -21,6 +21,15 @@ export interface CommandItem {
   updatedAt: number;
 }
 
+export interface ServerWebApp {
+  id: string;
+  name: string;
+  url: string;
+  username?: string;
+  password?: string;
+  note?: string;
+}
+
 export interface ServerItem {
   id: string;
   project: string;
@@ -37,6 +46,7 @@ export interface ServerItem {
   controlPanelPassword?: string;
   envInfo?: { key: string; value: string; }[];
   themeColor?: string;
+  webApps?: ServerWebApp[];
   updatedAt: number;
 }
 

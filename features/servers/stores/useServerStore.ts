@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { ServerItem, ServerDraft } from '../../../types';
+import { ServerItem, ServerDraft, ServerWebApp } from '../../../types';
 import { idbStorage } from '../../../services/indexedDBService';
 
 interface ServerState {
@@ -14,6 +14,11 @@ interface ServerState {
     updateServer: (id: string, draft: Partial<ServerDraft>) => void;
     deleteServer: (id: string) => void;
     importServers: (servers: ServerItem[]) => void;
+
+    // Actions - Web Apps
+    addWebApp: (serverId: string, webApp: Omit<ServerWebApp, 'id'>) => void;
+    updateWebApp: (serverId: string, webAppId: string, updates: Partial<ServerWebApp>) => void;
+    deleteWebApp: (serverId: string, webAppId: string) => void;
 }
 
 export const useServerStore = create<ServerState>()(
@@ -43,6 +48,41 @@ export const useServerStore = create<ServerState>()(
             })),
 
             importServers: (servers) => set({ servers }),
+
+            addWebApp: (serverId, webApp) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        webApps: [...(srv.webApps || []), { ...webApp, id: uuidv4() }],
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
+
+            updateWebApp: (serverId, webAppId, updates) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        webApps: (srv.webApps || []).map(app =>
+                            app.id === webAppId ? { ...app, ...updates } : app
+                        ),
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
+
+            deleteWebApp: (serverId, webAppId) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        webApps: (srv.webApps || []).filter(app => app.id !== webAppId),
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
         }),
         {
             name: 'penguin-memo-servers', // New key for separated store

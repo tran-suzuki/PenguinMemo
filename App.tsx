@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { EditorModal } from './components/EditorModal';
 import { ServerModal } from './components/ServerModal';
@@ -16,8 +16,14 @@ import { Plus, Search } from 'lucide-react';
 import { useUIStore } from './features/ui/stores/useUIStore';
 import { useCommandStore } from './features/commands/stores/useCommandStore';
 import { useServerStore } from './features/servers/stores/useServerStore';
+import { migrateData } from './services/migrationService';
 
 export default function App() {
+  // Migration
+  useEffect(() => {
+    migrateData();
+  }, []);
+
   // UI State
   const {
     viewMode,

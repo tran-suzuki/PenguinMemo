@@ -12,6 +12,7 @@ import { SearchResults } from './server-detail/SearchResults';
 import { ConfigList } from './server-detail/ConfigList';
 import { ConfigEditor } from './server-detail/ConfigEditor';
 import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
+import { WebAppList } from './server-detail/WebAppList';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -33,7 +34,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     addConfig, updateConfig, deleteConfig
   } = useConfigStore();
 
-  const [viewMode, setViewMode] = useState<'logs' | 'configs'>('logs');
+  const [viewMode, setViewMode] = useState<'logs' | 'configs' | 'webapps'>('logs');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
@@ -199,6 +200,16 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
             >
               Configs
             </button>
+            <button
+              onClick={() => setViewMode('webapps')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'webapps'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
+              style={viewMode === 'webapps' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
+            >
+              Web Apps
+            </button>
           </div>
 
           <div>
@@ -240,7 +251,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={16} />
             <input
               type="text"
-              placeholder={viewMode === 'logs' ? "すべてのスレッドから検索..." : "設定ファイルを検索 (パス・内容)..."}
+              placeholder={viewMode === 'logs' ? "すべてのスレッドから検索..." : viewMode === 'configs' ? "設定ファイルを検索 (パス・内容)..." : "Webアプリを検索..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500 text-white"
@@ -494,6 +505,12 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
                 </div>
               )}
             </>
+          )}
+
+          {viewMode === 'webapps' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <WebAppList serverId={server.id} webApps={server.webApps || []} />
+            </div>
           )}
         </main>
 
