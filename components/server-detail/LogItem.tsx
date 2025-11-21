@@ -8,18 +8,54 @@ import { SyntaxHighlighter } from '../SyntaxHighlighter';
 export const DiffViewer: React.FC<{ before: string, after: string, fontSize: number }> = ({ before, after, fontSize }) => {
     const diff = Diff.diffLines(before, after);
 
+    // Build side-by-side lines
+    const leftLines: { text: string, type: 'normal' | 'removed' | 'empty' }[] = [];
+    const rightLines: { text: string, type: 'normal' | 'added' | 'empty' }[] = [];
+
+    diff.forEach(part => {
+        const lines = part.value.replace(/\n$/, '').split('\n');
+        if (part.removed) {
+            lines.forEach(line => {
+                leftLines.push({ text: line, type: 'removed' });
+                rightLines.push({ text: '', type: 'empty' });
+            });
+        } else if (part.added) {
+            lines.forEach(line => {
+                leftLines.push({ text: '', type: 'empty' });
+                rightLines.push({ text: line, type: 'added' });
+            });
+        } else {
+            lines.forEach(line => {
+                leftLines.push({ text: line, type: 'normal' });
+                rightLines.push({ text: line, type: 'normal' });
+            });
+        }
+    });
+
     return (
-        <div className="p-3 bg-[#0a0a0a] overflow-x-auto font-mono leading-relaxed" style={{ fontSize }}>
-            {diff.map((part, index) => {
-                const color = part.added ? 'bg-green-900/20 text-green-400' :
-                    part.removed ? 'bg-red-900/20 text-red-400' : 'text-slate-400';
-                // const prefix = part.added ? '+ ' : part.removed ? '- ' : '  ';
-                return (
-                    <span key={index} className={`${color} block whitespace-pre-wrap border-l-2 ${part.added ? 'border-green-500/50' : part.removed ? 'border-red-500/50' : 'border-transparent'} pl-2`}>
-                        {part.value.replace(/\n$/, '')}
-                    </span>
-                );
-            })}
+        <div className="flex bg-[#0a0a0a] font-mono leading-relaxed overflow-x-auto" style={{ fontSize }}>
+            {/* Left Pane (Original) */}
+            <div className="flex-1 border-r border-slate-800 min-w-[50%]">
+                <div className="bg-slate-900/50 px-3 py-1 text-xs text-slate-500 border-b border-slate-800 sticky top-0">Original</div>
+                <div className="p-3">
+                    {leftLines.map((line, i) => (
+                        <div key={i} className={`${line.type === 'removed' ? 'bg-red-900/20 text-red-400' : line.type === 'empty' ? 'select-none' : 'text-slate-400'} whitespace-pre-wrap min-h-[1.5em]`}>
+                            {line.type === 'empty' ? ' ' : line.text}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {/* Right Pane (Modified) */}
+            <div className="flex-1 min-w-[50%]">
+                <div className="bg-slate-900/50 px-3 py-1 text-xs text-slate-500 border-b border-slate-800 sticky top-0">Modified</div>
+                <div className="p-3">
+                    {rightLines.map((line, i) => (
+                        <div key={i} className={`${line.type === 'added' ? 'bg-green-900/20 text-green-400' : line.type === 'empty' ? 'select-none' : 'text-slate-400'} whitespace-pre-wrap min-h-[1.5em]`}>
+                            {line.type === 'empty' ? ' ' : line.text}
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 };

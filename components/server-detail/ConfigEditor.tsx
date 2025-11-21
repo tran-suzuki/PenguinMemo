@@ -3,6 +3,7 @@ import { ServerConfig } from '../../types';
 import { Save, Copy, FileDiff, Type, Check } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import { DiffViewer } from './LogItem';
+import { Toast, ToastType } from '../Toast';
 
 interface ConfigEditorProps {
     config: ServerConfig | null;
@@ -37,6 +38,13 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNe
     const [fontSize, setFontSize] = useState(14);
     const [showDiff, setShowDiff] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    // Toast State
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: ToastType }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    });
 
     useEffect(() => {
         if (config) {
@@ -73,6 +81,7 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNe
     const handleSave = () => {
         if (!path.trim()) return;
         onSave(path, content, type);
+        setToast({ visible: true, message: '設定を保存しました', type: 'success' });
     };
 
     const handleCopy = () => {
@@ -91,7 +100,14 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNe
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-[#0c0c0c] h-full">
+        <div className="flex-1 flex flex-col bg-[#0c0c0c] h-full relative">
+            <Toast
+                isVisible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
+
             <div className="h-14 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 shrink-0">
                 <div className="flex items-center gap-4 flex-1">
                     <div className="flex-1 max-w-md">

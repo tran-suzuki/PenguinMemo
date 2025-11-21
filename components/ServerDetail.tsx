@@ -85,6 +85,16 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
     }).filter(group => group.logs.length > 0);
   }, [searchQuery, serverThreads, logs]);
 
+  // Config Search Logic
+  const filteredConfigs = React.useMemo(() => {
+    if (!searchQuery.trim()) return serverConfigs;
+    const query = searchQuery.toLowerCase();
+    return serverConfigs.filter(config =>
+      config.path.toLowerCase().includes(query) ||
+      config.content.toLowerCase().includes(query)
+    );
+  }, [searchQuery, serverConfigs]);
+
   const activeThread = serverThreads.find(t => t.id === activeThreadId);
 
   const handleAddLog = (command: string, output: string, user?: string, directory?: string) => {
@@ -186,7 +196,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={16} />
             <input
               type="text"
-              placeholder="すべてのスレッドから検索..."
+              placeholder={viewMode === 'logs' ? "すべてのスレッドから検索..." : "設定ファイルを検索 (パス・内容)..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500 text-white"
@@ -207,7 +217,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             {server.project}
           </span>
 
-          {activeThread && (
+          {activeThread && viewMode === 'logs' && (
             <>
               <button
                 onClick={() => setIsBulkModalOpen(true)}
@@ -280,7 +290,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             />
           ) : (
             <ConfigList
-              configs={serverConfigs}
+              configs={filteredConfigs}
               activeConfigId={isCreatingConfig ? null : activeConfigId}
               onSelectConfig={(id) => {
                 setActiveConfigId(id);
