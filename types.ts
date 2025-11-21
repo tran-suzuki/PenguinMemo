@@ -58,6 +58,15 @@ export interface ServerCommandLog {
   createdAt: number;
 }
 
+export interface ServerConfig {
+  id: string;
+  serverId: string;
+  path: string;
+  content: string;
+  type: string;
+  updatedAt: number;
+}
+
 export type CommandDraft = Omit<CommandItem, 'id' | 'createdAt' | 'updatedAt'>;
 export type ServerDraft = Omit<ServerItem, 'id' | 'updatedAt'>;
 
@@ -77,4 +86,5 @@ export interface BackupData {
   servers: ServerItem[];
   threads: ServerThread[];
   logs: ServerCommandLog[];
+  configs?: ServerConfig[];
 }

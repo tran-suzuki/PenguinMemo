@@ -2,13 +2,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { ServerItem, ServerDraft, ServerThread, ServerCommandLog } from '../types';
+import { ServerItem, ServerDraft, ServerThread, ServerCommandLog, ServerConfig } from '../types';
 import { idbStorage } from '../services/indexedDBService';
 
 interface ServerState {
   servers: ServerItem[];
   threads: ServerThread[];
   logs: ServerCommandLog[];
+  configs: ServerConfig[];
   selectedProject: string | 'All';
 
   // Actions - Server
@@ -38,7 +39,12 @@ interface ServerState {
   deleteLog: (logId: string) => void;
   reorderLogs: (activeId: string, overId: string) => void;
 
-  importServerData: (servers: ServerItem[], threads: ServerThread[], logs: ServerCommandLog[]) => void;
+  // Actions - Configs
+  addConfig: (serverId: string, path: string, content: string, type: string) => void;
+  updateConfig: (id: string, updates: Partial<ServerConfig>) => void;
+  deleteConfig: (id: string) => void;
+
+  importServerData: (servers: ServerItem[], threads: ServerThread[], logs: ServerCommandLog[], configs?: ServerConfig[]) => void;
 }
 
 export const useServerStore = create<ServerState>()(
@@ -47,6 +53,7 @@ export const useServerStore = create<ServerState>()(
       servers: [],
       threads: [],
       logs: [],
+      configs: [],
       selectedProject: 'All',
 
       setProjectFilter: (project) => set({ selectedProject: project }),
@@ -71,7 +78,8 @@ export const useServerStore = create<ServerState>()(
         logs: state.logs.filter(l => {
           const thread = state.threads.find(t => t.id === l.threadId);
           return thread && thread.serverId !== id;
-        })
+        }),
+        configs: state.configs ? state.configs.filter(c => c.serverId !== id) : []
       })),
 
       addThread: (serverId, title) => set((state) => {
@@ -215,7 +223,29 @@ export const useServerStore = create<ServerState>()(
         return { logs };
       }),
 
-      importServerData: (servers, threads, logs) => set({ servers, threads, logs }),
+      // Config Actions
+      addConfig: (serverId, path, content, type) => set((state) => ({
+        configs: [...(state.configs || []), {
+          id: uuidv4(),
+          serverId,
+          path,
+          content,
+          type,
+          updatedAt: Date.now()
+        }]
+      })),
+
+      updateConfig: (id, updates) => set((state) => ({
+        configs: (state.configs || []).map(c =>
+          c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c
+        )
+      })),
+
+      deleteConfig: (id) => set((state) => ({
+        configs: (state.configs || []).filter(c => c.id !== id)
+      })),
+
+      importServerData: (servers, threads, logs, configs) => set({ servers, threads, logs, configs: configs || [] }),
     }),
     {
       name: 'penguin-memo-server-store',

@@ -8,6 +8,8 @@ import { LogStream } from './server-detail/LogStream';
 import { LogInputArea } from './server-detail/LogInputArea';
 import { BulkLogImportModal } from './server-detail/BulkLogImportModal';
 import { SearchResults } from './server-detail/SearchResults';
+import { ConfigList } from './server-detail/ConfigList';
+import { ConfigEditor } from './server-detail/ConfigEditor';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -17,9 +19,17 @@ interface ServerDetailProps {
 
 export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) => {
   // Connect to Server Store
-  const { threads, logs, addThread, deleteThread, addLog, addLogs, deleteLog } = useServerStore();
+  const {
+    threads, logs, configs,
+    addThread, deleteThread,
+    addLog, addLogs, deleteLog,
+    addConfig, updateConfig, deleteConfig
+  } = useServerStore();
 
+  const [viewMode, setViewMode] = useState<'logs' | 'configs'>('logs');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
+  const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isInputOpen, setIsInputOpen] = useState(true);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -31,6 +41,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
 
   // Filter data for this server
   const serverThreads = threads.filter(t => t.serverId === server.id);
+  const serverConfigs = configs ? configs.filter(c => c.serverId === server.id) : [];
 
   // Initialize active thread
   useEffect(() => {
@@ -100,6 +111,17 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
     }
   };
 
+  const handleSaveConfig = (path: string, content: string, type: string) => {
+    if (isCreatingConfig) {
+      addConfig(server.id, path, content, type);
+      setIsCreatingConfig(false);
+      // Ideally select the new config, but we'd need the ID. 
+      // For now, just reset creation state.
+    } else if (activeConfigId) {
+      updateConfig(activeConfigId, { path, content, type });
+    }
+  };
+
   const handleExport = (format: 'md' | 'csv') => {
     if (!activeThread) return;
 
@@ -126,6 +148,29 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
           >
             <PanelLeft size={20} />
           </button>
+
+          {/* View Mode Toggle */}
+          <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+            <button
+              onClick={() => setViewMode('logs')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'logs'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
+            >
+              Logs
+            </button>
+            <button
+              onClick={() => setViewMode('configs')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'configs'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
+            >
+              Configs
+            </button>
+          </div>
+
           <div>
             <h2 className="font-bold text-white flex items-center gap-2">
               <Terminal size={18} className="text-blue-400" />
@@ -223,20 +268,42 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
       </header >
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Thread List Sidebar */}
+        {/* Sidebar */}
         {isSidebarOpen && (
-          <ThreadList
-            threads={serverThreads}
-            activeThreadId={activeThreadId}
-            onSelectThread={setActiveThreadId}
-            onCreateThread={(title) => addThread(server.id, title)}
-            onDeleteThread={deleteThread}
-          />
+          viewMode === 'logs' ? (
+            <ThreadList
+              threads={serverThreads}
+              activeThreadId={activeThreadId}
+              onSelectThread={setActiveThreadId}
+              onCreateThread={(title) => addThread(server.id, title)}
+              onDeleteThread={deleteThread}
+            />
+          ) : (
+            <ConfigList
+              configs={serverConfigs}
+              activeConfigId={isCreatingConfig ? null : activeConfigId}
+              onSelectConfig={(id) => {
+                setActiveConfigId(id);
+                setIsCreatingConfig(false);
+              }}
+              onCreateConfig={() => {
+                setIsCreatingConfig(true);
+                setActiveConfigId(null);
+              }}
+              onDeleteConfig={deleteConfig}
+            />
+          )
         )}
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col bg-[#0c0c0c] relative overflow-hidden">
-          {searchQuery ? (
+          {viewMode === 'configs' ? (
+            <ConfigEditor
+              config={activeConfigId ? serverConfigs.find(c => c.id === activeConfigId) || null : null}
+              onSave={handleSaveConfig}
+              isNew={isCreatingConfig}
+            />
+          ) : searchQuery ? (
             <SearchResults
               results={searchResults}
               onSelectThread={(id) => {
