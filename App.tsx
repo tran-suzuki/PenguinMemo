@@ -13,9 +13,9 @@ import { ReloadPrompt } from './components/ReloadPrompt';
 import { Plus, Search } from 'lucide-react';
 
 // Stores
-import { useUIStore } from './stores/useUIStore';
-import { useCommandStore } from './stores/useCommandStore';
-import { useServerStore } from './stores/useServerStore';
+import { useUIStore } from './features/ui/stores/useUIStore';
+import { useCommandStore } from './features/commands/stores/useCommandStore';
+import { useServerStore } from './features/servers/stores/useServerStore';
 
 export default function App() {
   // UI State

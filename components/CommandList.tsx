@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { CommandCard } from './CommandCard';
 import { Command, Search } from 'lucide-react';
-import { useCommandStore } from '../stores/useCommandStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useCommandStore } from '../features/commands/stores/useCommandStore';
+import { useUIStore } from '../features/ui/stores/useUIStore';
 
 export const CommandList: React.FC = () => {
   const { commands, selectedCategory, deleteCommand } = useCommandStore();
@@ -12,12 +12,12 @@ export const CommandList: React.FC = () => {
     return commands.filter(item => {
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         item.command.toLowerCase().includes(searchLower) ||
         item.description.toLowerCase().includes(searchLower) ||
         (item.output && item.output.toLowerCase().includes(searchLower)) ||
         item.tags.some(tag => tag.toLowerCase().includes(searchLower));
-      
+
       return matchesCategory && matchesSearch;
     }).sort((a, b) => b.updatedAt - a.updatedAt);
   }, [commands, selectedCategory, searchQuery]);
@@ -37,9 +37,9 @@ export const CommandList: React.FC = () => {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-7xl mx-auto">
       {filteredCommands.map(item => (
-        <CommandCard 
-          key={item.id} 
-          item={item} 
+        <CommandCard
+          key={item.id}
+          item={item}
           onDelete={deleteCommand}
           onEdit={(item) => openCommandModal(item.id)}
         />

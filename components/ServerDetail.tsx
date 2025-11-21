@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
 import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff } from 'lucide-react';
-import { useServerStore } from '../stores/useServerStore';
+import { useLogStore } from '../features/command-logs/stores/useLogStore';
+import { useConfigStore } from '../features/configs/stores/useConfigStore';
 import { ThreadList } from './server-detail/ThreadList';
 import { LogStream } from './server-detail/LogStream';
 import { LogInputArea } from './server-detail/LogInputArea';
@@ -22,11 +23,15 @@ interface ServerDetailProps {
 export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUpdate }) => {
   // Connect to Server Store
   const {
-    threads, logs, configs,
+    threads, logs,
     addThread, deleteThread,
-    addLog, addLogs, deleteLog,
+    addLog, addLogs, deleteLog
+  } = useLogStore();
+
+  const {
+    configs,
     addConfig, updateConfig, deleteConfig
-  } = useServerStore();
+  } = useConfigStore();
 
   const [viewMode, setViewMode] = useState<'logs' | 'configs'>('logs');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);

@@ -19,7 +19,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useServerStore } from '../../stores/useServerStore';
+import { useLogStore } from '../../features/command-logs/stores/useLogStore';
 import { generateLogNote } from '../../services/geminiService';
 import * as Diff from 'diff';
 import { SyntaxHighlighter } from '../SyntaxHighlighter';
@@ -35,7 +35,7 @@ export const LogStream: React.FC<LogStreamProps> = ({ logs, sessionStartTime, on
   const [isSortMode, setIsSortMode] = useState(false);
   const [fontSize, setFontSize] = useState(12);
   const [collapsedLogIds, setCollapsedLogIds] = useState<Set<string>>(new Set());
-  const { reorderLogs, updateLog } = useServerStore();
+  const { reorderLogs, updateLog } = useLogStore();
 
   const toggleLog = (id: string) => {
     setCollapsedLogIds(prev => {

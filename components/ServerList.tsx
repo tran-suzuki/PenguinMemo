@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { ServerCard } from './ServerCard';
 import { Server as ServerIcon } from 'lucide-react';
-import { useServerStore } from '../stores/useServerStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useServerStore } from '../features/servers/stores/useServerStore';
+import { useUIStore } from '../features/ui/stores/useUIStore';
 
 export const ServerList: React.FC = () => {
   const { servers, selectedProject, deleteServer } = useServerStore();
@@ -12,7 +12,7 @@ export const ServerList: React.FC = () => {
     return servers.filter(item => {
       const matchesProject = selectedProject === 'All' || item.project === selectedProject;
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         item.name.toLowerCase().includes(searchLower) ||
         item.host.toLowerCase().includes(searchLower) ||
         item.project.toLowerCase().includes(searchLower) ||
@@ -36,9 +36,9 @@ export const ServerList: React.FC = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
       {filteredServers.map(item => (
-        <ServerCard 
-          key={item.id} 
-          item={item} 
+        <ServerCard
+          key={item.id}
+          item={item}
           onDelete={deleteServer}
           onEdit={(item) => openServerModal(item.id)}
           onOpenDetail={(item) => selectServer(item.id)}

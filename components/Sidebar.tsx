@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { Terminal, Folder, Wifi, Cpu, Users, Archive, Info, Package, Box, Layers, Server, HardDrive, Database, Settings } from 'lucide-react';
 import { Category } from '../types';
-import { useUIStore } from '../stores/useUIStore';
-import { useCommandStore } from '../stores/useCommandStore';
-import { useServerStore } from '../stores/useServerStore';
+import { useUIStore } from '../features/ui/stores/useUIStore';
+import { useCommandStore } from '../features/commands/stores/useCommandStore';
+import { useServerStore } from '../features/servers/stores/useServerStore';
 
 const categoryIcons: Record<Category, React.ReactNode> = {
   [Category.FILE_SYSTEM]: <Folder size={18} />,
@@ -49,8 +49,8 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => setViewMode('commands')}
             className={`text-xs font-medium py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${viewMode === 'commands'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-slate-800 text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-300'
               }`}
           >
             <Terminal size={14} />
@@ -59,8 +59,8 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => setViewMode('servers')}
             className={`text-xs font-medium py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${viewMode === 'servers'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-slate-800 text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-300'
               }`}
           >
             <Server size={14} />
@@ -79,8 +79,8 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => setCategory('All')}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ${selectedCategory === 'All'
-                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
           >
             <div className="flex items-center gap-3">
@@ -101,8 +101,8 @@ export const Sidebar: React.FC = () => {
               key={cat}
               onClick={() => setCategory(cat)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 ${selectedCategory === cat
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                ? 'bg-slate-800 text-white'
+                : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                 }`}
             >
               <span className={`${selectedCategory === cat ? 'text-blue-400' : 'text-slate-500'}`}>
@@ -122,8 +122,8 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => setProjectFilter('All')}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ${selectedProject === 'All'
-                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
           >
             <div className="flex items-center gap-3">
@@ -145,8 +145,8 @@ export const Sidebar: React.FC = () => {
                 key={proj}
                 onClick={() => setProjectFilter(proj)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 ${selectedProject === proj
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                   }`}
               >
                 <span className={`${selectedProject === proj ? 'text-blue-400' : 'text-slate-500'}`}>

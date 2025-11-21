@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { X, Download, Upload, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useCommandStore } from '../stores/useCommandStore';
-import { useServerStore } from '../stores/useServerStore';
+import { useCommandStore } from '../features/commands/stores/useCommandStore';
+import { useServerStore } from '../features/servers/stores/useServerStore';
+import { useLogStore } from '../features/command-logs/stores/useLogStore';
 import { exportData, downloadBackup, validateBackupData, processImportData } from '../services/storageService';
 
 interface SettingsModalProps {
@@ -15,7 +16,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Stores
   const { commands, importCommands } = useCommandStore();
-  const { servers, threads, logs, importServerData } = useServerStore();
+  const { servers, importServers } = useServerStore();
+  const { threads, logs, importLogsData } = useLogStore();
 
   if (!isOpen) return null;
 
@@ -46,27 +48,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           throw new Error('Invalid format');
         }
 
-        const { 
-          commands: newCmds, 
-          servers: newSrvs, 
-          threads: newThreads, 
-          logs: newLogs 
+        const {
+          commands: newCmds,
+          servers: newSrvs,
+          threads: newThreads,
+          logs: newLogs
         } = processImportData(json);
 
         // Merge strategy: Append imported data to existing data
         importCommands([...commands, ...newCmds]);
-        importServerData(
-          [...servers, ...newSrvs],
-          [...threads, ...newThreads],
-          [...logs, ...newLogs]
-        );
+        importServers([...servers, ...newSrvs]);
+        importLogsData([...threads, ...newThreads], [...logs, ...newLogs]);
 
         setMessage({ type: 'success', text: `インポート成功: コマンド${newCmds.length}件, サーバー${newSrvs.length}件` });
       } catch (err) {
         console.error(err);
         setMessage({ type: 'error', text: 'ファイルの読み込みに失敗しました。形式を確認してください。' });
       }
-      
+
       // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -76,7 +75,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl flex flex-col">
-        
+
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Database className="text-slate-400" />
@@ -89,9 +88,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         <div className="p-6 space-y-6">
           {message && (
-            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-              message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
+            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
               {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
               {message.text}
             </div>
@@ -100,7 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-slate-300">バックアップ作成</h3>
             <p className="text-xs text-slate-500">現在のすべてのコマンドとサーバー設定をJSONファイルとしてダウンロードします。</p>
-            <button 
+            <button
               onClick={handleExport}
               className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-lg border border-slate-700 transition-colors"
             >
@@ -114,14 +112,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-slate-300">データの復元</h3>
             <p className="text-xs text-slate-500">バックアップファイルを読み込みます。既存のデータは保持され、新しいデータとして追加されます。</p>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              accept=".json" 
-              className="hidden" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              className="hidden"
             />
-            <button 
+            <button
               onClick={handleImportClick}
               className="w-full flex items-center justify-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 py-3 rounded-lg border border-blue-500/20 transition-colors"
             >

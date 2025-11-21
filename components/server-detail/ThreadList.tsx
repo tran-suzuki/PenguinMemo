@@ -4,7 +4,7 @@ import { ServerThread } from '../../types';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useServerStore } from '../../stores/useServerStore';
+import { useLogStore } from '../../features/command-logs/stores/useLogStore';
 
 interface ThreadListProps {
   threads: ServerThread[];
@@ -92,8 +92,8 @@ const SortableThreadItem: React.FC<SortableThreadItemProps> = ({
       ref={setNodeRef}
       style={style}
       className={`group flex items-center justify-between px-3 py-2 mx-2 rounded-lg mb-1 cursor-pointer transition-colors ${isActive
-          ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+        ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
         }`}
       onClick={isSortMode ? undefined : onSelect}
     >
@@ -141,7 +141,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [isSortMode, setIsSortMode] = useState(false);
 
-  const { updateThread, reorderThreads } = useServerStore();
+  const { updateThread, reorderThreads } = useLogStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
