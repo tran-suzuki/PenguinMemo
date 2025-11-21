@@ -13,6 +13,7 @@ import { ConfigList } from './server-detail/ConfigList';
 import { ConfigEditor } from './server-detail/ConfigEditor';
 import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
 import { WebAppList } from './server-detail/WebAppList';
+import { SSHTerminal } from './server-detail/SSHTerminal';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -34,7 +35,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     addConfig, updateConfig, deleteConfig
   } = useConfigStore();
 
-  const [viewMode, setViewMode] = useState<'logs' | 'configs' | 'webapps'>('logs');
+  const [viewMode, setViewMode] = useState<'logs' | 'configs' | 'webapps' | 'terminal'>('logs');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
@@ -209,6 +210,16 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               style={viewMode === 'webapps' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
             >
               Web Apps
+            </button>
+            <button
+              onClick={() => setViewMode('terminal')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'terminal'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
+              style={viewMode === 'terminal' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
+            >
+              Terminal
             </button>
           </div>
 
@@ -472,6 +483,23 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
             <div className="flex-1 overflow-y-auto p-6">
               <WebAppList serverId={server.id} webApps={server.webApps || []} />
             </div>
+          ) : viewMode === 'terminal' ? (
+            window.electronAPI ? (
+              <SSHTerminal server={server} />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-8 text-center">
+                <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 max-w-md">
+                  <Terminal size={48} className="mx-auto mb-4 text-slate-700" />
+                  <h3 className="text-lg font-bold text-slate-300 mb-2">Desktop App Required</h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    SSH terminal functionality is only available in the desktop version of PenguinMemo.
+                  </p>
+                  <div className="text-xs text-slate-600 bg-slate-950 p-3 rounded border border-slate-800 font-mono">
+                    npm run electron:dev
+                  </div>
+                </div>
+              </div>
+            )
           ) : searchQuery ? (
             <SearchResults
               results={searchResults}
