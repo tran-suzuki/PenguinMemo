@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
-import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search } from 'lucide-react';
+import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff } from 'lucide-react';
 import { useServerStore } from '../stores/useServerStore';
 import { ThreadList } from './server-detail/ThreadList';
 import { LogStream } from './server-detail/LogStream';
 import { LogInputArea } from './server-detail/LogInputArea';
 import { BulkLogImportModal } from './server-detail/BulkLogImportModal';
+import { BulkConfigImportModal } from './server-detail/BulkConfigImportModal';
 import { SearchResults } from './server-detail/SearchResults';
 import { ConfigList } from './server-detail/ConfigList';
 import { ConfigEditor } from './server-detail/ConfigEditor';
@@ -33,10 +34,12 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isInputOpen, setIsInputOpen] = useState(true);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkConfigModalOpen, setIsBulkConfigModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGeminiOpen, setIsGeminiOpen] = useState(false);
   const [currentDirectory, setCurrentDirectory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Filter data for this server
@@ -119,6 +122,12 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
     if (activeThreadId) {
       addLogs(activeThreadId, entries);
     }
+  };
+
+  const handleBulkConfigImport = (entries: { path: string; content: string; type: string }[]) => {
+    entries.forEach(entry => {
+      addConfig(server.id, entry.path, entry.content, entry.type);
+    });
   };
 
   const handleSaveConfig = (path: string, content: string, type: string) => {
@@ -217,7 +226,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             {server.project}
           </span>
 
-          {activeThread && viewMode === 'logs' && (
+          {viewMode === 'logs' && activeThread && (
             <>
               <button
                 onClick={() => setIsBulkModalOpen(true)}
@@ -263,6 +272,17 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             </>
           )}
 
+          {viewMode === 'configs' && (
+            <button
+              onClick={() => setIsBulkConfigModalOpen(true)}
+              className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 px-3 py-1.5 rounded transition-colors"
+              title="設定ファイルを一括インポート"
+            >
+              <ListPlus size={16} />
+              一括インポート
+            </button>
+          )}
+
           <button
             onClick={() => setIsGeminiOpen(!isGeminiOpen)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors ${isGeminiOpen
@@ -274,6 +294,80 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
             <Sparkles size={16} />
             <span className="text-xs font-medium hidden sm:inline">Gemini</span>
           </button>
+
+          {server.controlPanelUrl && (
+            <div className="relative group">
+              <a
+                href={server.controlPanelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
+                title="コントロールパネルを開く"
+              >
+                <ExternalLink size={16} />
+                <span className="text-xs font-medium hidden sm:inline">Console</span>
+              </a>
+
+              {/* Hover Card for Credentials */}
+              {(server.controlPanelUser || server.controlPanelPassword) && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-3 z-50 hidden group-hover:block">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 border-b border-slate-800 pb-1">Login Info</div>
+                  <div className="space-y-2">
+                    {server.controlPanelUser && (
+                      <div>
+                        <div className="text-[10px] text-slate-500">User</div>
+                        <div className="flex items-center justify-between bg-slate-950 rounded px-2 py-1">
+                          <code className="text-xs text-blue-300 font-mono">{server.controlPanelUser}</code>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigator.clipboard.writeText(server.controlPanelUser!);
+                            }}
+                            className="text-slate-500 hover:text-white"
+                            title="Copy User"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {server.controlPanelPassword && (
+                      <div>
+                        <div className="text-[10px] text-slate-500">Password</div>
+                        <div className="flex items-center justify-between bg-slate-950 rounded px-2 py-1 gap-2">
+                          <code className="text-xs text-slate-400 font-mono flex-1 truncate">
+                            {showPassword ? server.controlPanelPassword : '••••••••'}
+                          </code>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setShowPassword(!showPassword);
+                              }}
+                              className="text-slate-500 hover:text-white"
+                              title={showPassword ? "Hide Password" : "Show Password"}
+                            >
+                              {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigator.clipboard.writeText(server.controlPanelPassword!);
+                              }}
+                              className="text-slate-500 hover:text-white"
+                              title="Copy Password"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header >
 
@@ -398,6 +492,12 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack }) =>
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onImport={handleBulkImport}
+      />
+
+      <BulkConfigImportModal
+        isOpen={isBulkConfigModalOpen}
+        onClose={() => setIsBulkConfigModalOpen(false)}
+        onImport={handleBulkConfigImport}
       />
     </div >
   );

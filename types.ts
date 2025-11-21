@@ -32,6 +32,9 @@ export interface ServerItem {
   authValue: string; // password or path/content of key
   description: string;
   tags: string[];
+  controlPanelUrl?: string;
+  controlPanelUser?: string;
+  controlPanelPassword?: string;
   updatedAt: number;
 }
 
