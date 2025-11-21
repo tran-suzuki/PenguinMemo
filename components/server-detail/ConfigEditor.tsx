@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ServerConfig } from '../../types';
-import { Save, Copy, FileDiff, Type, Check } from 'lucide-react';
+import { Save, Copy, FileDiff, Type, Check, Trash2 } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import { DiffViewer } from './LogItem';
 import { Toast, ToastType } from '../Toast';
@@ -8,6 +8,7 @@ import { Toast, ToastType } from '../Toast';
 interface ConfigEditorProps {
     config: ServerConfig | null;
     onSave: (path: string, content: string, type: string) => void;
+    onDelete?: () => void;
     isNew: boolean;
 }
 
@@ -31,7 +32,7 @@ const COMMON_TYPES = [
     { value: 'other', label: 'Other' },
 ];
 
-export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNew }) => {
+export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, onDelete, isNew }) => {
     const [path, setPath] = useState('');
     const [content, setContent] = useState('');
     const [type, setType] = useState<string>('other');
@@ -88,6 +89,12 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNe
         navigator.clipboard.writeText(content);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDelete = () => {
+        if (window.confirm('本当にこの設定ファイルを削除しますか？この操作は取り消せません。')) {
+            onDelete?.();
+        }
     };
 
     if (!config && !isNew) {
@@ -175,6 +182,16 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave, isNe
                     )}
 
                     <div className="w-px h-6 bg-slate-800 mx-2" />
+
+                    {!isNew && onDelete && (
+                        <button
+                            onClick={handleDelete}
+                            className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors mr-2"
+                            title="削除"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    )}
 
                     <button
                         onClick={handleSave}

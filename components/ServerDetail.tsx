@@ -420,15 +420,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         {isSidebarOpen && (
-          viewMode === 'logs' ? (
-            <ThreadList
-              threads={serverThreads}
-              activeThreadId={activeThreadId}
-              onSelectThread={setActiveThreadId}
-              onCreateThread={(title) => addThread(server.id, title)}
-              onDeleteThread={deleteThread}
-            />
-          ) : (
+          viewMode === 'configs' ? (
             <ConfigList
               configs={filteredConfigs}
               activeConfigId={isCreatingConfig ? null : activeConfigId}
@@ -442,6 +434,14 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               }}
               onDeleteConfig={deleteConfig}
               isSearching={!!searchQuery}
+            />
+          ) : (
+            <ThreadList
+              threads={serverThreads}
+              activeThreadId={activeThreadId}
+              onSelectThread={setActiveThreadId}
+              onCreateThread={(title) => addThread(server.id, title)}
+              onDeleteThread={deleteThread}
             />
           )
         )}
@@ -461,9 +461,17 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               <ConfigEditor
                 config={activeConfigId ? serverConfigs.find(c => c.id === activeConfigId) || null : null}
                 onSave={handleSaveConfig}
+                onDelete={activeConfigId ? () => {
+                  deleteConfig(activeConfigId);
+                  setActiveConfigId(null);
+                } : undefined}
                 isNew={isCreatingConfig}
               />
             )
+          ) : viewMode === 'webapps' ? (
+            <div className="flex-1 overflow-y-auto p-6">
+              <WebAppList serverId={server.id} webApps={server.webApps || []} />
+            </div>
           ) : searchQuery ? (
             <SearchResults
               results={searchResults}
@@ -505,12 +513,6 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
                 </div>
               )}
             </>
-          )}
-
-          {viewMode === 'webapps' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <WebAppList serverId={server.id} webApps={server.webApps || []} />
-            </div>
           )}
         </main>
 

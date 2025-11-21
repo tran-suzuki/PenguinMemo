@@ -156,7 +156,7 @@ export const ConfigList: React.FC<ConfigListProps> = ({
         return (
             <div key={node.path}>
                 <div
-                    className={`flex items-center gap-2 py-1 px-2 cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30 text-blue-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    className={`flex items-center gap-2 py-1 px-2 cursor-pointer transition-colors group ${isActive ? 'bg-blue-900/30 text-blue-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
                     style={{ paddingLeft: `${level * 12 + 8}px` }}
                     onClick={() => {
@@ -176,17 +176,17 @@ export const ConfigList: React.FC<ConfigListProps> = ({
                         <>
                             {getIcon(node.configType || 'other')}
                             <span className="text-xs truncate flex-1">{node.name}</span>
-                            {isActive && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('本当に削除しますか？')) {
                                         if (node.configId) onDeleteConfig(node.configId);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
-                            )}
+                                    }
+                                }}
+                                className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
+                            >
+                                <Trash2 size={12} />
+                            </button>
                         </>
                     )}
                 </div>
