@@ -20,6 +20,16 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
   const [step, setStep] = useState<'input' | 'preview'>('input');
   const [rawInput, setRawInput] = useState('');
   const [parsedEntries, setParsedEntries] = useState<ParsedEntry[]>([]);
+  const [parseMode, setParseMode] = useState<'auto' | 'lines'>('auto');
+
+  // Common Linux commands to detect when prompt is missing
+  const COMMON_COMMANDS = [
+    'sudo', 'cd', 'ls', 'pwd', 'cp', 'mv', 'rm', 'mkdir', 'rmdir', 'touch',
+    'cat', 'grep', 'find', 'chmod', 'chown', 'systemctl', 'journalctl',
+    'docker', 'git', 'npm', 'yarn', 'pnpm', 'node', 'python', 'pip', 'apt',
+    'yum', 'dnf', 'service', 'tar', 'zip', 'unzip', 'ssh', 'scp', 'rsync',
+    'curl', 'wget', 'echo', 'export', 'alias', 'source', '.', 'vi', 'vim', 'nano'
+  ];
 
   if (!isOpen) return null;
 
@@ -28,27 +38,30 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
 
     const lines = rawInput.split('\n');
     const entries: ParsedEntry[] = [];
-    
+
     let currentCommand = '';
     let currentOutput: string[] = [];
     let currentUser = '';
     let currentDir = '';
 
     // Regex to detect prompt lines and extract context
-    // Matches patterns like:
-    // [user@host dir]$ 
-    // user@host:dir$
-    // root@host:/path#
-    // Group 1: User
-    // Group 2: Directory (approximate)
-    // Group 3: Command
     const promptRegex = /^\[?([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+(?:\s+|:)([^\]\$#]+)\]?[\$#]\s+(.*)$/;
 
     lines.forEach((line) => {
-      const match = line.match(promptRegex);
-      
-      if (match) {
-        // If we have a previous command pending, push it
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+
+      // 1. Check for Prompt
+      const promptMatch = line.match(promptRegex);
+
+      // 2. Check for Command Heuristic (only in Auto mode)
+      const isCommandStart = parseMode === 'lines' || (
+        parseMode === 'auto' &&
+        COMMON_COMMANDS.some(cmd => trimmedLine.startsWith(cmd + ' ') || trimmedLine === cmd)
+      );
+
+      if (promptMatch) {
+        // Case A: Explicit Prompt Found
         if (currentCommand) {
           entries.push({
             id: Math.random().toString(36).substr(2, 9),
@@ -58,16 +71,39 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
             directory: currentDir
           });
         }
-        
-        // Start new entry
-        currentUser = match[1];
-        currentDir = match[2].trim();
-        currentCommand = match[3]; // The part after the prompt
+
+        currentUser = promptMatch[1];
+        currentDir = promptMatch[2].trim();
+        currentCommand = promptMatch[3];
         currentOutput = [];
-      } else {
-        // If it's not a prompt, it's likely output
+
+      } else if (isCommandStart && !currentCommand.includes('\\')) {
+        // Case B: Implicit Command Start (Heuristic)
+        // Note: We check !currentCommand.includes('\\') to avoid breaking multi-line commands
+
         if (currentCommand) {
-          currentOutput.push(line);
+          entries.push({
+            id: Math.random().toString(36).substr(2, 9),
+            command: currentCommand,
+            output: currentOutput.join('\n').trim(),
+            user: currentUser,
+            directory: currentDir
+          });
+        }
+
+        // Inherit context from previous
+        currentCommand = trimmedLine;
+        currentOutput = [];
+
+      } else {
+        // Case C: Output or Continuation
+        if (currentCommand) {
+          // Check for multi-line command continuation
+          if (currentCommand.endsWith('\\')) {
+            currentCommand = currentCommand.slice(0, -1) + ' ' + trimmedLine;
+          } else {
+            currentOutput.push(line);
+          }
         }
       }
     });
@@ -88,8 +124,8 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
   };
 
   const handleImport = () => {
-    onImport(parsedEntries.map(({ command, output, user, directory }) => ({ 
-      command, 
+    onImport(parsedEntries.map(({ command, output, user, directory }) => ({
+      command,
       output,
       user: user || undefined,
       directory: directory || undefined
@@ -109,7 +145,7 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
   };
 
   const updateEntry = (id: string, field: keyof ParsedEntry, value: string) => {
-    setParsedEntries(prev => prev.map(e => 
+    setParsedEntries(prev => prev.map(e =>
       e.id === id ? { ...e, [field]: value } : e
     ));
   };
@@ -117,7 +153,7 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh]">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -131,7 +167,7 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          
+
           {step === 'input' ? (
             <div className="space-y-4">
               <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 flex gap-3">
@@ -149,12 +185,35 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
               <textarea
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}
-                className="w-full h-96 bg-slate-950 border border-slate-700 rounded-lg p-4 font-mono text-sm text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                className="w-full h-80 bg-slate-950 border border-slate-700 rounded-lg p-4 font-mono text-sm text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 placeholder={`[am-am@x162-43-88-210 www]$ ls -l
 total 0
 drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
 ...`}
               />
+
+              <div className="flex items-center gap-4 px-2">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="parseMode"
+                    checked={parseMode === 'auto'}
+                    onChange={() => setParseMode('auto')}
+                    className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm text-slate-300 group-hover:text-white">自動解析 (推奨)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="parseMode"
+                    checked={parseMode === 'lines'}
+                    onChange={() => setParseMode('lines')}
+                    className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm text-slate-300 group-hover:text-white">1行1コマンドとして扱う</span>
+                </label>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -164,27 +223,27 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
               </p>
 
               {parsedEntries.length === 0 ? (
-                 <div className="text-center py-10 text-slate-500">
-                   プロンプトが見つかりませんでした。<br/>
-                   入力データを確認してください。
-                 </div>
+                <div className="text-center py-10 text-slate-500">
+                  プロンプトが見つかりませんでした。<br />
+                  入力データを確認してください。
+                </div>
               ) : (
                 <div className="space-y-4">
                   {parsedEntries.map((entry, index) => (
                     <div key={entry.id} className="bg-slate-950 border border-slate-800 rounded-lg p-4 group">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-mono text-slate-500">#{index + 1}</span>
-                        <button 
+                        <button
                           onClick={() => removeEntry(entry.id)}
                           className="text-slate-600 hover:text-red-400 transition-colors"
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
-                      
+
                       {/* Context Fields */}
                       <div className="grid grid-cols-2 gap-4 mb-3">
-                         <div>
+                        <div>
                           <label className="block text-[10px] text-slate-500 mb-1">User</label>
                           <input
                             value={entry.user}
@@ -192,8 +251,8 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
                             className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-xs text-blue-300 focus:border-blue-500 outline-none"
                             placeholder="root"
                           />
-                         </div>
-                         <div>
+                        </div>
+                        <div>
                           <label className="block text-[10px] text-slate-500 mb-1">Directory</label>
                           <input
                             value={entry.directory}
@@ -201,7 +260,7 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
                             className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-xs text-yellow-300 focus:border-blue-500 outline-none"
                             placeholder="/var/www"
                           />
-                         </div>
+                        </div>
                       </div>
 
                       <div className="space-y-3">
@@ -233,7 +292,7 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
         {/* Footer */}
         <div className="p-6 border-t border-slate-800 flex justify-between items-center bg-slate-900/50">
           {step === 'preview' ? (
-            <button 
+            <button
               onClick={() => setStep('input')}
               className="text-slate-400 hover:text-white text-sm font-medium"
             >
@@ -244,15 +303,15 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
           )}
 
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={handleClose}
               className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm font-medium"
             >
               キャンセル
             </button>
-            
+
             {step === 'input' ? (
-              <button 
+              <button
                 onClick={parseLogs}
                 disabled={!rawInput.trim()}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
@@ -261,7 +320,7 @@ drwxr-xr-x. 2 root root 6 Nov 19 16:30 am
                 <ArrowRight size={16} />
               </button>
             ) : (
-              <button 
+              <button
                 onClick={handleImport}
                 disabled={parsedEntries.length === 0}
                 className="px-6 py-2 bg-green-600 hover:bg-green-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"

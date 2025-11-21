@@ -5,7 +5,9 @@ import { ServerModal } from './components/ServerModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ServerDetail } from './components/ServerDetail';
 import { CommandList } from './components/CommandList';
+
 import { ServerList } from './components/ServerList';
+import { PWAInstallButton } from './components/PWAInstallButton';
 
 import { Plus, Search } from 'lucide-react';
 
@@ -16,10 +18,10 @@ import { useServerStore } from './stores/useServerStore';
 
 export default function App() {
   // UI State
-  const { 
-    viewMode, 
-    searchQuery, 
-    setSearchQuery, 
+  const {
+    viewMode,
+    searchQuery,
+    setSearchQuery,
     selectedServerId,
     selectServer,
     isCommandModalOpen,
@@ -54,7 +56,7 @@ export default function App() {
   if (activeServer) {
     return (
       <div className="h-screen bg-slate-950 text-slate-200 font-sans">
-        <ServerDetail 
+        <ServerDetail
           server={activeServer}
           onBack={() => selectServer(null)}
         />
@@ -72,21 +74,24 @@ export default function App() {
         <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 backdrop-blur-sm z-10">
           <div className="relative w-96 group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder={viewMode === 'commands' ? "コマンドを検索..." : "サーバーを検索..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-800 border-slate-700 border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500 text-white"
             />
           </div>
-          <button 
-            onClick={handleOpenNew}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all hover:scale-105 active:scale-95"
-          >
-            <Plus size={18} />
-            {viewMode === 'commands' ? '新規コマンド' : 'サーバー追加'}
-          </button>
+          <div className="flex items-center gap-2">
+            <PWAInstallButton />
+            <button
+              onClick={handleOpenNew}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all hover:scale-105 active:scale-95"
+            >
+              <Plus size={18} />
+              {viewMode === 'commands' ? '新規コマンド' : 'サーバー追加'}
+            </button>
+          </div>
         </header>
 
         {/* Content Area */}
@@ -100,9 +105,9 @@ export default function App() {
       </main>
 
       {/* Modals */}
-      <EditorModal 
-        isOpen={isCommandModalOpen} 
-        onClose={closeCommandModal} 
+      <EditorModal
+        isOpen={isCommandModalOpen}
+        onClose={closeCommandModal}
         onSave={(draft) => {
           if (editingCommandId) updateCommand(editingCommandId, draft);
           else addCommand(draft);
@@ -114,8 +119,8 @@ export default function App() {
         isOpen={isServerModalOpen}
         onClose={closeServerModal}
         onSave={(draft) => {
-           if (editingServerId) updateServer(editingServerId, draft);
-           else addServer(draft);
+          if (editingServerId) updateServer(editingServerId, draft);
+          else addServer(draft);
         }}
         initialData={editingServer}
       />
