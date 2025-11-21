@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         manifest: {
           name: 'PenguinMemo',
@@ -33,6 +33,11 @@ export default defineConfig(({ mode }) => {
               type: 'image/png'
             }
           ]
+        },
+        workbox: {
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true
         }
       })
     ],

@@ -8,6 +8,7 @@ import { CommandList } from './components/CommandList';
 
 import { ServerList } from './components/ServerList';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { ReloadPrompt } from './components/ReloadPrompt';
 
 import { Plus, Search } from 'lucide-react';
 
@@ -129,6 +130,7 @@ export default function App() {
         isOpen={isSettingsModalOpen}
         onClose={closeSettingsModal}
       />
+      <ReloadPrompt />
     </div>
   );
 }
