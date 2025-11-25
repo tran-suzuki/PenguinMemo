@@ -12,7 +12,6 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -20,9 +19,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useLogStore } from '../../features/command-logs/stores/useLogStore';
-import { generateLogNote } from '../../services/geminiService';
-import * as Diff from 'diff';
-import { SyntaxHighlighter } from '../SyntaxHighlighter';
+import { Virtuoso } from 'react-virtuoso';
+import { LogItem } from './LogItem';
 
 interface LogStreamProps {
   logs: ServerCommandLog[];
@@ -31,7 +29,6 @@ interface LogStreamProps {
 }
 
 export const LogStream: React.FC<LogStreamProps> = ({ logs, sessionStartTime, onDeleteLog }) => {
-  const endRef = useRef<HTMLDivElement>(null);
   const [isSortMode, setIsSortMode] = useState(false);
   const [fontSize, setFontSize] = useState(12);
   const [collapsedLogIds, setCollapsedLogIds] = useState<Set<string>>(new Set());
@@ -64,12 +61,6 @@ export const LogStream: React.FC<LogStreamProps> = ({ logs, sessionStartTime, on
   // Sort logs by order
   const sortedLogs = [...logs].sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  useEffect(() => {
-    if (!isSortMode) {
-      endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs.length, isSortMode]);
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -78,9 +69,9 @@ export const LogStream: React.FC<LogStreamProps> = ({ logs, sessionStartTime, on
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth pb-6 flex flex-col">
-      {/* Header / Controls */}
-      <div className="flex items-center justify-between mb-2 shrink-0">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header / Controls - Fixed at top */}
+      <div className="flex items-center justify-between p-4 pb-2 shrink-0 bg-[#0c0c0c] z-10">
         <span className="bg-slate-900 text-slate-500 text-xs px-3 py-1 rounded-full border border-slate-800">
           {new Date(sessionStartTime || Date.now()).toLocaleString()} - Session Started
         </span>
@@ -113,33 +104,56 @@ export const LogStream: React.FC<LogStreamProps> = ({ logs, sessionStartTime, on
         </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={sortedLogs.map(l => l.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-6">
-            {sortedLogs.map((log) => (
-              <SortableLogItem
-                key={log.id}
-                log={log}
-                onDelete={() => onDeleteLog(log.id)}
-                onUpdate={(updates) => updateLog(log.id, updates)}
-                isSortMode={isSortMode}
-                fontSize={fontSize}
-                isExpanded={!collapsedLogIds.has(log.id)}
-                onToggle={() => toggleLog(log.id)}
-              />
-            ))}
+      {/* Content Area */}
+      <div className="flex-1 min-h-0">
+        {isSortMode ? (
+          <div className="h-full overflow-y-auto p-4 pt-0 space-y-6">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sortedLogs.map(l => l.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-6 pb-6">
+                  {sortedLogs.map((log) => (
+                    <SortableLogItem
+                      key={log.id}
+                      log={log}
+                      onDelete={() => onDeleteLog(log.id)}
+                      onUpdate={(updates) => updateLog(log.id, updates)}
+                      isSortMode={isSortMode}
+                      fontSize={fontSize}
+                      isExpanded={!collapsedLogIds.has(log.id)}
+                      onToggle={() => toggleLog(log.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
-        </SortableContext>
-      </DndContext>
-
-      <div ref={endRef} />
+        ) : (
+          <Virtuoso
+            style={{ height: '100%' }}
+            data={sortedLogs}
+            followOutput={'auto'}
+            itemContent={(index, log) => (
+              <div className="px-4 py-3">
+                <LogItem
+                  log={log}
+                  onDelete={() => onDeleteLog(log.id)}
+                  onUpdate={(updates) => updateLog(log.id, updates)}
+                  fontSize={fontSize}
+                  isExpanded={!collapsedLogIds.has(log.id)}
+                  onToggle={() => toggleLog(log.id)}
+                />
+              </div>
+            )}
+          />
+        )}
+      </div>
     </div>
   );
 };
@@ -153,12 +167,6 @@ interface SortableLogItemProps {
   isExpanded: boolean;
   onToggle: () => void;
 }
-
-import { LogItem } from './LogItem';
-
-// ... imports
-
-// ... LogStream component ...
 
 const SortableLogItem: React.FC<SortableLogItemProps> = ({ log, onDelete, onUpdate, isSortMode, fontSize, isExpanded, onToggle }) => {
   const {

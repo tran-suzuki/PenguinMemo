@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import { ServerItem, ServerDraft, ServerWebApp } from '../../../types';
+import { ServerItem, ServerDraft, ServerWebApp, ServerDomain } from '../../../types';
 import { idbStorage } from '../../../services/indexedDBService';
 
 interface ServerState {
@@ -19,6 +19,11 @@ interface ServerState {
     addWebApp: (serverId: string, webApp: Omit<ServerWebApp, 'id'>) => void;
     updateWebApp: (serverId: string, webAppId: string, updates: Partial<ServerWebApp>) => void;
     deleteWebApp: (serverId: string, webAppId: string) => void;
+
+    // Actions - Domains
+    addDomain: (serverId: string, domain: Omit<ServerDomain, 'id'>) => void;
+    updateDomain: (serverId: string, domainId: string, updates: Partial<ServerDomain>) => void;
+    deleteDomain: (serverId: string, domainId: string) => void;
 }
 
 export const useServerStore = create<ServerState>()(
@@ -79,6 +84,41 @@ export const useServerStore = create<ServerState>()(
                     return {
                         ...srv,
                         webApps: (srv.webApps || []).filter(app => app.id !== webAppId),
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
+
+            addDomain: (serverId, domain) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        domains: [...(srv.domains || []), { ...domain, id: uuidv4() }],
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
+
+            updateDomain: (serverId, domainId, updates) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        domains: (srv.domains || []).map(d =>
+                            d.id === domainId ? { ...d, ...updates } : d
+                        ),
+                        updatedAt: Date.now()
+                    };
+                })
+            })),
+
+            deleteDomain: (serverId, domainId) => set((state) => ({
+                servers: state.servers.map(srv => {
+                    if (srv.id !== serverId) return srv;
+                    return {
+                        ...srv,
+                        domains: (srv.domains || []).filter(d => d.id !== domainId),
                         updatedAt: Date.now()
                     };
                 })

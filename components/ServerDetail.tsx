@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
-import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff, Globe } from 'lucide-react';
 import { useLogStore } from '../features/command-logs/stores/useLogStore';
 import { useConfigStore } from '../features/configs/stores/useConfigStore';
 import { ThreadList } from './server-detail/ThreadList';
@@ -249,6 +249,28 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
                   ))}
                   {server.envInfo.length > 3 && (
                     <span className="text-[10px] text-slate-600">...</span>
+                  )}
+                </div>
+              )}
+              {server.domains && server.domains.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <div className="w-[1px] h-3 bg-slate-700 mx-1"></div>
+                  <Globe size={12} className="text-slate-500" />
+                  {server.domains.slice(0, 2).map((domain, i) => (
+                    <a
+                      key={i}
+                      href={`https://${domain.domain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-400 hover:text-blue-300 bg-slate-800 px-1 rounded border border-slate-700/50 flex items-center gap-1 transition-colors"
+                      title={domain.note}
+                    >
+                      {domain.domain}
+                      <ExternalLink size={8} className="opacity-50" />
+                    </a>
+                  ))}
+                  {server.domains.length > 2 && (
+                    <span className="text-[10px] text-slate-600">+{server.domains.length - 2}</span>
                   )}
                 </div>
               )}

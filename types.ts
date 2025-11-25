@@ -30,6 +30,12 @@ export interface ServerWebApp {
   note?: string;
 }
 
+export interface ServerDomain {
+  id: string;
+  domain: string;
+  note?: string;
+}
+
 export interface ServerItem {
   id: string;
   project: string;
@@ -45,6 +51,7 @@ export interface ServerItem {
   controlPanelUser?: string;
   controlPanelPassword?: string;
   envInfo?: { key: string; value: string; }[];
+  domains?: ServerDomain[];
   themeColor?: string;
   webApps?: ServerWebApp[];
   updatedAt: number;
