@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
-import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff, Globe } from 'lucide-react';
+import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff, Globe, Users } from 'lucide-react';
 import { useLogStore } from '../features/command-logs/stores/useLogStore';
 import { useConfigStore } from '../features/configs/stores/useConfigStore';
 import { ThreadList } from './server-detail/ThreadList';
@@ -14,6 +14,7 @@ import { ConfigEditor } from './server-detail/ConfigEditor';
 import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
 import { WebAppList } from './server-detail/WebAppList';
 import { SSHTerminal } from './server-detail/SSHTerminal';
+import { SFTPFileManager } from './server-detail/SFTPFileManager';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -35,7 +36,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     addConfig, updateConfig, deleteConfig
   } = useConfigStore();
 
-  const [viewMode, setViewMode] = useState<'logs' | 'configs' | 'webapps' | 'terminal'>('logs');
+  const [viewMode, setViewMode] = useState<'logs' | 'configs' | 'webapps' | 'terminal' | 'files'>('logs');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
@@ -220,6 +221,16 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               style={viewMode === 'terminal' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
             >
               Terminal
+            </button>
+            <button
+              onClick={() => setViewMode('files')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === 'files'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
+              style={viewMode === 'files' && server.themeColor ? { backgroundColor: server.themeColor } : {}}
+            >
+              Files
             </button>
           </div>
 
@@ -447,6 +458,89 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               )}
             </div>
           )}
+
+          {/* Root Password & Additional Users Display */}
+          {(server.rootPassword || (server.additionalUsers && server.additionalUsers.length > 0)) && (
+            <div className="relative group ml-2">
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
+                <Users size={16} />
+                <span className="text-xs font-medium hidden sm:inline">Users</span>
+              </button>
+
+              <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-3 z-50 hidden group-hover:block">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 border-b border-slate-800 pb-1">Server Credentials</div>
+                <div className="space-y-3">
+                  {server.rootPassword && (
+                    <div>
+                      <div className="text-[10px] text-red-400 font-bold mb-1">Root Password</div>
+                      <div className="flex items-center justify-between bg-slate-950 rounded px-2 py-1 gap-2">
+                        <code className="text-xs text-slate-400 font-mono flex-1 truncate">
+                          {showPassword ? server.rootPassword : '••••••••'}
+                        </code>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowPassword(!showPassword);
+                            }}
+                            className="text-slate-500 hover:text-white"
+                            title={showPassword ? "Hide Password" : "Show Password"}
+                          >
+                            {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigator.clipboard.writeText(server.rootPassword!);
+                            }}
+                            className="text-slate-500 hover:text-white"
+                            title="Copy Password"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {server.additionalUsers && server.additionalUsers.length > 0 && (
+                    <div>
+                      <div className="text-[10px] text-slate-500 font-bold mb-1">Additional Users</div>
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {server.additionalUsers.map((user, idx) => (
+                          <div key={idx} className="bg-slate-950 rounded p-2 border border-slate-800/50">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs text-blue-300 font-mono">{user.username}</span>
+                              {user.note && <span className="text-[10px] text-slate-600">{user.note}</span>}
+                            </div>
+                            {user.password && (
+                              <div className="flex items-center justify-between gap-2">
+                                <code className="text-xs text-slate-500 font-mono flex-1 truncate">
+                                  {showPassword ? user.password : '••••••••'}
+                                </code>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      navigator.clipboard.writeText(user.password!);
+                                    }}
+                                    className="text-slate-600 hover:text-white"
+                                    title="Copy Password"
+                                  >
+                                    <Copy size={10} />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header >
 
@@ -481,6 +575,31 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col bg-[#0c0c0c] relative overflow-hidden">
+          {/* Terminal View (Always rendered to persist connection) */}
+          <div className={`flex-1 flex flex-col h-full ${viewMode === 'terminal' ? 'block' : 'hidden'}`}>
+            {window.electronAPI ? (
+              <SSHTerminal server={server} />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-8 text-center">
+                <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 max-w-md">
+                  <Terminal size={48} className="mx-auto mb-4 text-slate-700" />
+                  <h3 className="text-lg font-bold text-slate-300 mb-2">Desktop App Required</h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    SSH terminal functionality is only available in the desktop version of PenguinMemo.
+                  </p>
+                  <div className="text-xs text-slate-600 bg-slate-950 p-3 rounded border border-slate-800 font-mono">
+                    npm run electron:dev
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {viewMode === 'files' && (
+            <SFTPFileManager server={server} />
+          )}
+
+          {/* Other Views */}
           {viewMode === 'configs' ? (
             searchQuery ? (
               <ConfigSearchResults
@@ -505,65 +624,50 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
             <div className="flex-1 overflow-y-auto p-6">
               <WebAppList serverId={server.id} webApps={server.webApps || []} />
             </div>
-          ) : viewMode === 'terminal' ? (
-            window.electronAPI ? (
-              <SSHTerminal server={server} />
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-8 text-center">
-                <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 max-w-md">
-                  <Terminal size={48} className="mx-auto mb-4 text-slate-700" />
-                  <h3 className="text-lg font-bold text-slate-300 mb-2">Desktop App Required</h3>
-                  <p className="text-sm text-slate-500 mb-4">
-                    SSH terminal functionality is only available in the desktop version of PenguinMemo.
-                  </p>
-                  <div className="text-xs text-slate-600 bg-slate-950 p-3 rounded border border-slate-800 font-mono">
-                    npm run electron:dev
-                  </div>
-                </div>
-              </div>
-            )
-          ) : searchQuery ? (
-            <SearchResults
-              results={searchResults}
-              onSelectThread={(id) => {
-                setActiveThreadId(id);
-                setSearchQuery('');
-              }}
-            />
-          ) : !activeThreadId ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
-              <Terminal size={48} className="opacity-20 mb-4" />
-              <p>スレッドを選択または作成してください</p>
-            </div>
-          ) : (
-            <>
-              <LogStream
-                logs={activeLogs}
-                sessionStartTime={serverThreads.find(t => t.id === activeThreadId)?.createdAt}
-                onDeleteLog={deleteLog}
+          ) : viewMode === 'logs' ? (
+            searchQuery ? (
+              <SearchResults
+                results={searchResults}
+                onSelectThread={(id) => {
+                  setActiveThreadId(id);
+                  setSearchQuery('');
+                }}
               />
+            ) : !activeThreadId ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
+                <Terminal size={48} className="opacity-20 mb-4" />
+                <p>スレッドを選択または作成してください</p>
+              </div>
+            ) : (
+              <>
+                <LogStream
+                  logs={activeLogs}
+                  sessionStartTime={serverThreads.find(t => t.id === activeThreadId)?.createdAt}
+                  onDeleteLog={deleteLog}
+                />
 
-              {isInputOpen ? (
-                <div className="overflow-x-hidden w-full">
-                  <LogInputArea
-                    onAddLog={handleAddLog}
-                    onClose={() => setIsInputOpen(false)}
-                    initialDirectory={currentDirectory}
-                  />
-                </div>
-              ) : (
-                <div className="border-t border-slate-800 bg-slate-900 p-2 shrink-0 flex justify-center z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
-                  <button
-                    onClick={() => setIsInputOpen(true)}
-                    className="w-full max-w-4xl mx-auto flex items-center justify-center gap-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800 py-2 rounded-lg transition-all font-medium text-sm"
-                  >
-                    <ChevronUp size={16} />
-                    コマンド入力を開く
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                {isInputOpen ? (
+                  <div className="overflow-x-hidden w-full">
+                    <LogInputArea
+                      onAddLog={handleAddLog}
+                      onClose={() => setIsInputOpen(false)}
+                      initialDirectory={currentDirectory}
+                    />
+                  </div>
+                ) : (
+                  <div className="border-t border-slate-800 bg-slate-900 p-2 shrink-0 flex justify-center z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+                    <button
+                      onClick={() => setIsInputOpen(true)}
+                      className="w-full max-w-4xl mx-auto flex items-center justify-center gap-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800 py-2 rounded-lg transition-all font-medium text-sm"
+                    >
+                      <ChevronUp size={16} />
+                      コマンド入力を開く
+                    </button>
+                  </div>
+                )}
+              </>
+            )
+          ) : null}
         </main>
 
         {/* Gemini Sidebar */}

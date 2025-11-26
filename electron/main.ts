@@ -1,9 +1,15 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'ssh2'
+import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const logPath = path.join(app.getPath('userData'), 'electron-debug.log');
+
+function logToFile(message: string) {
+    fs.appendFileSync(logPath, `${new Date().toISOString()} - ${message}\n`);
+}
 
 // The built directory structure
 //
@@ -22,6 +28,10 @@ let win: BrowserWindow | null
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
+    logToFile('Main Process: Creating window...');
+    logToFile(`Main Process: Preload path: ${path.join(__dirname, 'preload.js')}`);
+    logToFile(`Main Process: User Data path: ${app.getPath('userData')}`);
+
     win = new BrowserWindow({
         icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
         width: 1200,
@@ -134,5 +144,118 @@ ipcMain.on('ssh-disconnect', (event, { id }) => {
     if (conn) {
         conn.end();
         sshConnections.delete(id);
+    }
+});
+
+// --- SFTP Implementation ---
+
+ipcMain.handle('sftp-list', async (event, { id, path: remotePath }) => {
+    return new Promise((resolve, reject) => {
+        const conn = sshConnections.get(id);
+        if (!conn) {
+            reject('Connection not found');
+            return;
+        }
+
+        conn.sftp((err, sftp) => {
+            if (err) {
+                reject(err.message);
+                return;
+            }
+
+            sftp.readdir(remotePath, (err, list) => {
+                sftp.end();
+                if (err) {
+                    reject(err.message);
+                    return;
+                }
+
+                const files = list.map(item => ({
+                    name: item.filename,
+                    isDirectory: item.longname.startsWith('d'),
+                    size: item.attrs.size,
+                    modifyTime: item.attrs.mtime * 1000,
+                    permissions: item.longname.split(' ')[0]
+                }));
+
+                resolve(files);
+            });
+        });
+    });
+});
+
+ipcMain.handle('sftp-upload', async (event, { id, localPath, remotePath }) => {
+    return new Promise((resolve, reject) => {
+        const conn = sshConnections.get(id);
+        if (!conn) {
+            reject('Connection not found');
+            return;
+        }
+
+        conn.sftp((err, sftp) => {
+            if (err) {
+                reject(err.message);
+                return;
+            }
+
+            sftp.fastPut(localPath, remotePath, (err) => {
+                sftp.end();
+                if (err) {
+                    reject(err.message);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    });
+});
+
+ipcMain.handle('sftp-download', async (event, { id, remotePath, localPath }) => {
+    return new Promise((resolve, reject) => {
+        const conn = sshConnections.get(id);
+        if (!conn) {
+            reject('Connection not found');
+            return;
+        }
+
+        conn.sftp((err, sftp) => {
+            if (err) {
+                reject(err.message);
+                return;
+            }
+
+            sftp.fastGet(remotePath, localPath, (err) => {
+                sftp.end();
+                if (err) {
+                    reject(err.message);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    });
+});
+
+// --- Dialog Handlers ---
+
+ipcMain.handle('dialog:open-file', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
+        properties: ['openFile']
+    });
+    if (canceled) {
+        return null;
+    } else {
+        return filePaths[0];
+    }
+});
+
+ipcMain.handle('dialog:save-file', async (event, { defaultPath }) => {
+    const { canceled, filePath } = await dialog.showSaveDialog(win!, {
+        defaultPath
+    });
+    if (canceled) {
+        return null;
+    } else {
+        return filePath;
     }
 });

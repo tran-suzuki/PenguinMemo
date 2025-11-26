@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
 
       {/* View Switcher */}
       <div className="px-4 mb-4">
-        <div className="bg-slate-950 p-1 rounded-lg grid grid-cols-2 gap-1 border border-slate-800">
+        <div className="bg-slate-950 p-1 rounded-lg grid grid-cols-3 gap-1 border border-slate-800">
           <button
             onClick={() => setViewMode('commands')}
             className={`text-xs font-medium py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${viewMode === 'commands'
@@ -65,6 +65,16 @@ export const Sidebar: React.FC = () => {
           >
             <Server size={14} />
             Servers
+          </button>
+          <button
+            onClick={() => setViewMode('files')}
+            className={`text-xs font-medium py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${viewMode === 'files'
+              ? 'bg-slate-800 text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-300'
+              }`}
+          >
+            <Folder size={14} />
+            Files
           </button>
         </div>
       </div>
@@ -113,10 +123,12 @@ export const Sidebar: React.FC = () => {
           ))}
         </nav>
       ) : (
-        /* Server Projects */
+        /* Server Projects (for Servers and Files modes) */
         <nav className="flex-1 px-4 py-2 overflow-y-auto space-y-1 scrollbar-thin">
           <div className="px-2 mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inventory</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {viewMode === 'files' ? 'File Browser' : 'Inventory'}
+            </span>
           </div>
 
           <button

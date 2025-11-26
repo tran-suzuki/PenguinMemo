@@ -36,6 +36,12 @@ export interface ServerDomain {
   note?: string;
 }
 
+export interface ServerUser {
+  username: string;
+  password?: string;
+  note?: string;
+}
+
 export interface ServerItem {
   id: string;
   project: string;
@@ -50,6 +56,8 @@ export interface ServerItem {
   controlPanelUrl?: string;
   controlPanelUser?: string;
   controlPanelPassword?: string;
+  rootPassword?: string;
+  additionalUsers?: ServerUser[];
   envInfo?: { key: string; value: string; }[];
   domains?: ServerDomain[];
   themeColor?: string;
@@ -98,7 +106,7 @@ export interface GeminiResponse {
   category: Category;
 }
 
-export type ViewMode = 'commands' | 'servers';
+export type ViewMode = 'commands' | 'servers' | 'files';
 
 // Data structure for Export/Import
 export interface BackupData {
