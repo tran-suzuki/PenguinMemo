@@ -25,4 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     sendSSHData: (id: string, data: string) => ipcRenderer.send('ssh-data', { id, data }),
     resizeSSH: (id: string, cols: number, rows: number) => ipcRenderer.send('ssh-resize', { id, cols, rows }),
+
+    // Gemini
+    openGemini: () => ipcRenderer.send('gemini:open'),
+    resizeGemini: (bounds: { x: number, y: number, width: number, height: number }) => ipcRenderer.send('gemini:resize', bounds),
+    closeGemini: () => ipcRenderer.send('gemini:close'),
 })

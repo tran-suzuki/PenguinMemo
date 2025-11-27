@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
           vite: {
             build: {
               rollupOptions: {
-                external: ['ssh2'],
+                external: ['ssh2', 'ssh2-streams'],
               },
             },
           },

@@ -15,6 +15,9 @@ import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
 import { WebAppList } from './server-detail/WebAppList';
 import { SSHTerminal } from './server-detail/SSHTerminal';
 import { SFTPFileManager } from './server-detail/SFTPFileManager';
+import { TerminalManager } from './server-detail/TerminalManager';
+import { TerminalSidebar } from './server-detail/TerminalSidebar';
+import { v4 as uuidv4 } from 'uuid';
 import { exportThreadToMarkdown, exportThreadToCsv } from '../services/storageService';
 
 interface ServerDetailProps {
@@ -49,7 +52,111 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   const [currentDirectory, setCurrentDirectory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+
+  // Gemini Sidebar State
+  const [geminiSidebarWidth, setGeminiSidebarWidth] = useState(400);
+  const [isResizingGemini, setIsResizingGemini] = useState(false);
+  const geminiSidebarRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Handle Gemini Sidebar Resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingGemini) return;
+
+      const newWidth = document.body.clientWidth - e.clientX;
+      // Limit width between 300px and 800px (or 50% of screen)
+      const clampedWidth = Math.max(300, Math.min(newWidth, window.innerWidth * 0.6));
+      setGeminiSidebarWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingGemini(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    if (isResizingGemini) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+  }, [isResizingGemini]);
+
+  // Sync Gemini BrowserView with Sidebar
+  useEffect(() => {
+    if (!isGeminiOpen || !window.electronAPI) {
+      window.electronAPI?.closeGemini();
+      return;
+    }
+
+    const updateGeminiBounds = () => {
+      if (geminiSidebarRef.current) {
+        const rect = geminiSidebarRef.current.getBoundingClientRect();
+        // Account for high DPI if necessary, but usually Electron handles logical pixels
+        // We need to pass the bounds relative to the window
+        window.electronAPI.resizeGemini({
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        });
+      }
+    };
+
+    // Open Gemini
+    window.electronAPI.openGemini();
+
+    // Initial resize
+    // Small delay to ensure layout is computed
+    setTimeout(updateGeminiBounds, 50);
+
+    // Update on resize
+    const resizeObserver = new ResizeObserver(() => {
+      updateGeminiBounds();
+    });
+
+    if (geminiSidebarRef.current) {
+      resizeObserver.observe(geminiSidebarRef.current);
+    }
+
+    window.addEventListener('resize', updateGeminiBounds);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateGeminiBounds);
+      window.electronAPI.closeGemini();
+    };
+  }, [isGeminiOpen, geminiSidebarWidth]); // Re-run when open state or width changes
+
+
+  // Terminal State
+  const [terminalTabs, setTerminalTabs] = useState<{ id: string; title: string }[]>([]);
+  const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
+
+  const handleAddTerminalTab = () => {
+    const newTabId = uuidv4();
+    const newTab = { id: newTabId, title: `Terminal ${terminalTabs.length + 1}` };
+    setTerminalTabs([...terminalTabs, newTab]);
+    setActiveTerminalId(newTabId);
+  };
+
+  const handleCloseTerminalTab = (id: string) => {
+    const newTabs = terminalTabs.filter(t => t.id !== id);
+    setTerminalTabs(newTabs);
+    if (activeTerminalId === id) {
+      setActiveTerminalId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
+    }
+  };
 
   // Filter data for this server
   const serverThreads = threads.filter(t => t.serverId === server.id);
@@ -562,6 +669,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
               onDeleteConfig={deleteConfig}
               isSearching={!!searchQuery}
             />
+          ) : viewMode === 'terminal' ? (
+            <TerminalSidebar server={server} activeTerminalId={activeTerminalId} />
           ) : (
             <ThreadList
               threads={serverThreads}
@@ -578,7 +687,14 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
           {/* Terminal View (Always rendered to persist connection) */}
           <div className={`flex-1 flex flex-col h-full ${viewMode === 'terminal' ? 'block' : 'hidden'}`}>
             {window.electronAPI ? (
-              <SSHTerminal server={server} />
+              <TerminalManager
+                server={server}
+                tabs={terminalTabs}
+                activeTabId={activeTerminalId}
+                onAddTab={handleAddTerminalTab}
+                onCloseTab={handleCloseTerminalTab}
+                onSelectTab={setActiveTerminalId}
+              />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-8 text-center">
                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 max-w-md">
@@ -672,8 +788,20 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
 
         {/* Gemini Sidebar */}
         {isGeminiOpen && (
-          <aside className="w-96 border-l border-slate-800 bg-slate-900 flex flex-col shrink-0 transition-all duration-300">
-            <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900">
+          <aside
+            ref={geminiSidebarRef}
+            style={{ width: geminiSidebarWidth }}
+            className="border-l border-slate-800 bg-slate-900 flex flex-col shrink-0 transition-none relative"
+          >
+            {/* Resize Handle */}
+            <div
+              className="absolute -left-3 top-0 bottom-0 w-4 cursor-col-resize z-50 group"
+              onMouseDown={() => setIsResizingGemini(true)}
+            >
+              <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500/50 transition-colors" />
+            </div>
+
+            <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900 shrink-0">
               <span className="text-xs font-bold text-slate-400 flex items-center gap-2">
                 <Sparkles size={14} className="text-blue-400" />
                 Gemini
@@ -685,24 +813,28 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
                 <X size={16} />
               </button>
             </div>
-            <div className="flex-1 bg-slate-950 p-6 flex flex-col items-center justify-center text-center border-t border-slate-800">
-              <div className="bg-slate-900 p-4 rounded-full mb-4 shadow-lg shadow-blue-900/10">
-                <Sparkles size={32} className="text-blue-400" />
+
+            {/* Content Area - Only visible in Web/PWA or if Electron API is missing */}
+            {!window.electronAPI && (
+              <div className="flex-1 bg-slate-950 p-6 flex flex-col items-center justify-center text-center border-t border-slate-800">
+                <div className="bg-slate-900 p-4 rounded-full mb-4 shadow-lg shadow-blue-900/10">
+                  <Sparkles size={32} className="text-blue-400" />
+                </div>
+                <h3 className="text-white font-bold mb-2">Gemini</h3>
+                <p className="text-slate-400 text-xs mb-6 max-w-[240px] leading-relaxed">
+                  Googleのセキュリティ制限により、Web版ではGeminiをこの画面内に直接表示することはできません。
+                </p>
+                <a
+                  href="https://gemini.google.com/app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-900/20"
+                >
+                  別ウィンドウで開く
+                  <ExternalLink size={14} />
+                </a>
               </div>
-              <h3 className="text-white font-bold mb-2">Gemini</h3>
-              <p className="text-slate-400 text-xs mb-6 max-w-[240px] leading-relaxed">
-                Googleのセキュリティ制限により、Geminiをこの画面内に直接表示することはできません。
-              </p>
-              <a
-                href="https://gemini.google.com/app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-900/20"
-              >
-                別ウィンドウで開く
-                <ExternalLink size={14} />
-              </a>
-            </div>
+            )}
           </aside>
         )}
       </div>

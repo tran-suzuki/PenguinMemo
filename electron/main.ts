@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, BrowserView } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'ssh2'
@@ -33,7 +33,7 @@ function createWindow() {
     logToFile(`Main Process: User Data path: ${app.getPath('userData')}`);
 
     win = new BrowserWindow({
-        icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+        icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         width: 1200,
         height: 800,
         webPreferences: {
@@ -80,9 +80,29 @@ app.whenReady().then(createWindow)
 
 const sshConnections = new Map<string, Client>();
 
+import { convert } from 'ppk-to-openssh';
+
 ipcMain.handle('ssh-connect', async (event, { id, host, port, username, password, privateKey }) => {
     return new Promise((resolve, reject) => {
         const conn = new Client();
+
+        let finalPrivateKey = privateKey;
+        let finalPassphrase = password;
+
+        // Handle PuTTY Private Key (PPK)
+        if (privateKey && privateKey.trim().startsWith('PuTTY-User-Key-File-')) {
+            try {
+                // Convert PPK to OpenSSH format
+                // If the key is encrypted, 'password' is used as the passphrase
+                finalPrivateKey = convert(privateKey, password || '');
+                // After conversion, the key is unencrypted (PEM), so we don't need to pass the passphrase to ssh2
+                finalPassphrase = undefined;
+            } catch (err: any) {
+                console.error(`SSH Client :: PPK Conversion Error (${id})`, err);
+                reject(`PPK Conversion Failed: ${err.message}`);
+                return;
+            }
+        }
 
         conn.on('ready', () => {
             console.log(`SSH Client :: ready (${id})`);
@@ -119,8 +139,9 @@ ipcMain.handle('ssh-connect', async (event, { id, host, port, username, password
             host,
             port: parseInt(port) || 22,
             username,
-            password,
-            privateKey
+            password: finalPassphrase, // Use original password if no key, or undefined if PPK converted
+            privateKey: finalPrivateKey,
+            passphrase: finalPassphrase // Use original password as passphrase for standard OpenSSH keys
         });
     });
 });
@@ -257,5 +278,42 @@ ipcMain.handle('dialog:save-file', async (event, { defaultPath }) => {
         return null;
     } else {
         return filePath;
+    }
+});
+
+// --- Gemini BrowserView Implementation ---
+
+let geminiView: BrowserView | null = null;
+
+ipcMain.on('gemini:open', (event) => {
+    if (geminiView) return; // Already open
+
+    if (!win) return;
+
+    geminiView = new BrowserView({
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+        }
+    });
+
+    win.setBrowserView(geminiView);
+    geminiView.webContents.loadURL('https://gemini.google.com/app');
+
+    // Initial bounds - will be updated by resize event immediately
+    geminiView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+});
+
+ipcMain.on('gemini:resize', (event, bounds) => {
+    if (geminiView) {
+        geminiView.setBounds(bounds);
+    }
+});
+
+ipcMain.on('gemini:close', (event) => {
+    if (geminiView && win) {
+        win.removeBrowserView(geminiView);
+        // geminiView.webContents.destroy(); // Optional: destroy if you want to clear state
+        geminiView = null;
     }
 });

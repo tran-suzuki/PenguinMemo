@@ -11,7 +11,12 @@ interface SSHTerminalProps {
     server: ServerItem;
 }
 
-export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
+interface SSHTerminalProps {
+    server: ServerItem;
+    terminalId: string;
+}
+
+export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -55,7 +60,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         // Handle input
         term.onData((data) => {
             if (isConnectedRef.current) {
-                window.electronAPI?.sendSSHData(server.id, data);
+                window.electronAPI?.sendSSHData(terminalId, data);
             }
         });
 
@@ -63,7 +68,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         const handleResize = () => {
             fitAddon.fit();
             if (isConnectedRef.current) {
-                window.electronAPI?.resizeSSH(server.id, term.cols, term.rows);
+                window.electronAPI?.resizeSSH(terminalId, term.cols, term.rows);
             }
         };
 
@@ -78,7 +83,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
 
             try {
                 await window.electronAPI?.connectSSH({
-                    id: server.id,
+                    id: terminalId,
                     host: server.host,
                     port: server.port || 22,
                     username: server.username,
@@ -92,7 +97,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
                 term.write('\r\nConnected!\r\n');
 
                 // Initial resize sync
-                window.electronAPI?.resizeSSH(server.id, term.cols, term.rows);
+                window.electronAPI?.resizeSSH(terminalId, term.cols, term.rows);
 
             } catch (err: any) {
                 console.error('SSH Connection failed:', err);
@@ -106,11 +111,11 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         connect();
 
         // Listen for data from main process
-        const cleanupDataListener = window.electronAPI.on(`ssh-data-${server.id}`, (data: string) => {
+        const cleanupDataListener = window.electronAPI.on(`ssh-data-${terminalId}`, (data: string) => {
             term.write(data);
         });
 
-        const cleanupCloseListener = window.electronAPI.on(`ssh-closed-${server.id}`, () => {
+        const cleanupCloseListener = window.electronAPI.on(`ssh-closed-${terminalId}`, () => {
             setIsConnected(false);
             isConnectedRef.current = false;
             term.write('\r\nConnection closed.\r\n');
@@ -120,11 +125,11 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
             window.removeEventListener('resize', handleResize);
             cleanupDataListener();
             cleanupCloseListener();
-            window.electronAPI?.disconnectSSH(server.id);
+            window.electronAPI?.disconnectSSH(terminalId);
             term.dispose();
             isConnectedRef.current = false;
         };
-    }, [server]);
+    }, [server, terminalId]);
 
     // Re-fit on container resize (using ResizeObserver)
     useEffect(() => {
@@ -133,7 +138,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         const resizeObserver = new ResizeObserver(() => {
             fitAddonRef.current?.fit();
             if (xtermRef.current && isConnected) {
-                window.electronAPI?.resizeSSH(server.id, xtermRef.current.cols, xtermRef.current.rows);
+                window.electronAPI?.resizeSSH(terminalId, xtermRef.current.cols, xtermRef.current.rows);
             }
         });
 
@@ -142,7 +147,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         return () => {
             resizeObserver.disconnect();
         };
-    }, [isConnected, server.id]);
+    }, [isConnected, server.id, terminalId]);
 
     // Handle Context Menu
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -171,7 +176,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server }) => {
         try {
             const text = await navigator.clipboard.readText();
             if (text && isConnectedRef.current) {
-                window.electronAPI.sendSSHData(server.id, text);
+                window.electronAPI.sendSSHData(terminalId, text);
             }
         } catch (err) {
             console.error('Failed to read clipboard:', err);
