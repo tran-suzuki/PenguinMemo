@@ -11,6 +11,8 @@ interface Window {
         sftpList: (id: string, path: string) => Promise<any[]>;
         sftpUpload: (id: string, localPath: string, remotePath: string) => Promise<boolean>;
         sftpDownload: (id: string, remotePath: string, localPath: string) => Promise<boolean>;
+        sftpMkdir: (id: string, path: string) => Promise<boolean>;
+        sftpRename: (id: string, oldPath: string, newPath: string) => Promise<boolean>;
         showOpenDialog: () => Promise<string | null>;
         showSaveDialog: (defaultPath: string) => Promise<string | null>;
         sendSSHData: (id: string, data: string) => void;
@@ -18,5 +20,6 @@ interface Window {
         openGemini: () => void;
         resizeGemini: (bounds: { x: number, y: number, width: number, height: number }) => void;
         closeGemini: () => void;
+        openExternal: (url: string) => Promise<void>;
     }
 }

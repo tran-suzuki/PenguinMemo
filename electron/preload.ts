@@ -30,4 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openGemini: () => ipcRenderer.send('gemini:open'),
     resizeGemini: (bounds: { x: number, y: number, width: number, height: number }) => ipcRenderer.send('gemini:resize', bounds),
     closeGemini: () => ipcRenderer.send('gemini:close'),
+
+    // Shell
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', { url }),
 })

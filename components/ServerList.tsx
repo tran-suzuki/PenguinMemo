@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { ServerCard } from './ServerCard';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { ServerItem } from '../types';
 import { Server as ServerIcon } from 'lucide-react';
 import { useServerStore } from '../features/servers/stores/useServerStore';
 import { useUIStore } from '../features/ui/stores/useUIStore';
@@ -7,6 +9,7 @@ import { useUIStore } from '../features/ui/stores/useUIStore';
 export const ServerList: React.FC = () => {
   const { servers, selectedProject, deleteServer } = useServerStore();
   const { searchQuery, openServerModal, selectServer } = useUIStore();
+  const [deletingServer, setDeletingServer] = React.useState<ServerItem | null>(null);
 
   const filteredServers = useMemo(() => {
     return servers.filter(item => {
@@ -39,11 +42,24 @@ export const ServerList: React.FC = () => {
         <ServerCard
           key={item.id}
           item={item}
-          onDelete={deleteServer}
+          onDelete={() => setDeletingServer(item)}
           onEdit={(item) => openServerModal(item.id)}
           onOpenDetail={(item) => selectServer(item.id)}
         />
       ))}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingServer}
+        onClose={() => setDeletingServer(null)}
+        onConfirm={() => {
+          if (deletingServer) {
+            deleteServer(deletingServer.id);
+          }
+        }}
+        title="サーバーを削除"
+        message="本当にこのサーバーを削除しますか？"
+        itemName={deletingServer?.name}
+      />
     </div>
   );
 };

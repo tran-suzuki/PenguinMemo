@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, SFTPFile } from '../../types';
-import { Folder, File, RefreshCw, Upload, Download, ArrowLeft, Home, HardDrive, ChevronRight, Loader2 } from 'lucide-react';
+import { Folder, File, RefreshCw, Upload, Download, ArrowLeft, Home, HardDrive, ChevronRight, Loader2, FolderPlus, Edit2 } from 'lucide-react';
 import { Toast, ToastType } from '../Toast';
 
 interface SFTPFileManagerProps {
@@ -19,11 +19,54 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
     });
 
 
+    const connectionId = `sftp-${server.id}`;
+    const [isConnected, setIsConnected] = useState(false);
+
+    // Establish SSH Connection for SFTP
+    useEffect(() => {
+        let mounted = true;
+
+        const connect = async () => {
+            if (!window.electronAPI) return;
+            setIsLoading(true);
+            try {
+                await window.electronAPI.connectSSH({
+                    id: connectionId,
+                    host: server.host,
+                    port: server.port || 22,
+                    username: server.username,
+                    password: server.password,
+                    privateKey: server.authType === 'key' ? server.authValue : undefined
+                });
+                if (mounted) {
+                    setIsConnected(true);
+                    loadFiles('.');
+                }
+            } catch (error: any) {
+                if (mounted) {
+                    setToast({
+                        visible: true,
+                        message: `SFTP Connection failed: ${error}`,
+                        type: 'error'
+                    });
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        connect();
+
+        return () => {
+            mounted = false;
+            window.electronAPI?.disconnectSSH(connectionId);
+        };
+    }, [server.id, connectionId]);
+
     const loadFiles = async (path: string) => {
         if (!window.electronAPI) return;
         setIsLoading(true);
         try {
-            const list = await window.electronAPI.sftpList(server.id, path);
+            const list = await window.electronAPI.sftpList(connectionId, path);
             // Sort: Directories first, then files. Both alphabetical.
             const sorted = list.sort((a, b) => {
                 if (a.isDirectory === b.isDirectory) {
@@ -33,6 +76,7 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
             });
             setFiles(sorted);
             setCurrentPath(path);
+            setSelectedFile(null);
         } catch (error: any) {
             setToast({
                 visible: true,
@@ -43,10 +87,6 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
             setIsLoading(false);
         }
     };
-
-    useEffect(() => {
-        loadFiles('.');
-    }, [server.id]);
 
     const handleNavigate = (path: string) => {
         loadFiles(path);
@@ -90,7 +130,7 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
             const remotePath = currentPath === '.' ? filename : `${currentPath}/${filename}`;
 
             setIsLoading(true);
-            await window.electronAPI.sftpUpload(server.id, localPath, remotePath);
+            await window.electronAPI.sftpUpload(connectionId, localPath, remotePath);
             setToast({ visible: true, message: `Uploaded ${filename}`, type: 'success' });
             loadFiles(currentPath);
         } catch (error: any) {
@@ -111,10 +151,47 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
             setIsLoading(true);
             const remotePath = currentPath === '.' ? selectedFile.name : `${currentPath}/${selectedFile.name}`;
 
-            await window.electronAPI.sftpDownload(server.id, remotePath, localPath);
+            await window.electronAPI.sftpDownload(connectionId, remotePath, localPath);
             setToast({ visible: true, message: `Downloaded ${selectedFile.name}`, type: 'success' });
         } catch (error: any) {
             setToast({ visible: true, message: `Download failed: ${error}`, type: 'error' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleMkdir = async () => {
+        if (!window.electronAPI) return;
+        const name = prompt('Enter folder name:');
+        if (!name) return;
+
+        try {
+            setIsLoading(true);
+            const path = currentPath === '.' ? name : `${currentPath}/${name}`;
+            await window.electronAPI.sftpMkdir(connectionId, path);
+            setToast({ visible: true, message: `Created folder ${name}`, type: 'success' });
+            loadFiles(currentPath);
+        } catch (error: any) {
+            setToast({ visible: true, message: `Failed to create folder: ${error}`, type: 'error' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRename = async () => {
+        if (!selectedFile || !window.electronAPI) return;
+        const newName = prompt('Enter new name:', selectedFile.name);
+        if (!newName || newName === selectedFile.name) return;
+
+        try {
+            setIsLoading(true);
+            const oldPath = currentPath === '.' ? selectedFile.name : `${currentPath}/${selectedFile.name}`;
+            const newPath = currentPath === '.' ? newName : `${currentPath}/${newName}`;
+            await window.electronAPI.sftpRename(connectionId, oldPath, newPath);
+            setToast({ visible: true, message: `Renamed to ${newName}`, type: 'success' });
+            loadFiles(currentPath);
+        } catch (error: any) {
+            setToast({ visible: true, message: `Rename failed: ${error}`, type: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -130,6 +207,23 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
 
     const formatDate = (ms: number) => {
         return new Date(ms).toLocaleString();
+    };
+
+    const renderPermissions = (perms: string) => {
+        // d rwx r-x r-x
+        const type = perms.charAt(0);
+        const user = perms.slice(1, 4);
+        const group = perms.slice(4, 7);
+        const other = perms.slice(7, 10);
+
+        return (
+            <span className="font-mono">
+                <span className={type === 'd' ? 'text-blue-400' : 'text-slate-500'}>{type}</span>
+                <span className="text-green-400">{user}</span>
+                <span className="text-yellow-400">{group}</span>
+                <span className="text-red-400">{other}</span>
+            </span>
+        );
     };
 
     return (
@@ -179,6 +273,23 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
 
                 <div className="w-px h-6 bg-slate-800 mx-1" />
 
+                <button
+                    onClick={handleMkdir}
+                    className="p-1.5 rounded hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
+                    title="New Folder"
+                >
+                    <FolderPlus size={18} />
+                </button>
+
+                <button
+                    onClick={handleRename}
+                    disabled={!selectedFile}
+                    className="p-1.5 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-slate-400 hover:text-white"
+                    title="Rename"
+                >
+                    <Edit2 size={18} />
+                </button>
+
                 <div className="w-px h-6 bg-slate-800 mx-1" />
 
                 <button
@@ -206,6 +317,7 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
                             <th className="px-4 py-2 border-b border-slate-800 w-8"></th>
                             <th className="px-4 py-2 border-b border-slate-800">Name</th>
                             <th className="px-4 py-2 border-b border-slate-800 w-24 text-right">Size</th>
+                            <th className="px-4 py-2 border-b border-slate-800 w-32">Owner</th>
                             <th className="px-4 py-2 border-b border-slate-800 w-40">Date</th>
                             <th className="px-4 py-2 border-b border-slate-800 w-24">Perms</th>
                         </tr>
@@ -222,23 +334,28 @@ export const SFTPFileManager: React.FC<SFTPFileManagerProps> = ({ server }) => {
                                 <td className="px-4 py-2 border-b border-slate-800/50 text-slate-400">
                                     {file.isDirectory ? <Folder size={16} className="text-blue-400" /> : <File size={16} />}
                                 </td>
-                                <td className="px-4 py-2 border-b border-slate-800/50 text-slate-200">
-                                    {file.name}
+                                <td className="px-4 py-2 border-b border-slate-800/50">
+                                    <span className={`${file.isDirectory ? 'text-blue-400 font-bold' : 'text-slate-200'} ${file.name.startsWith('.') ? 'opacity-70' : ''}`}>
+                                        {file.name}
+                                    </span>
                                 </td>
                                 <td className="px-4 py-2 border-b border-slate-800/50 text-right text-slate-500">
                                     {file.isDirectory ? '-' : formatSize(file.size)}
                                 </td>
+                                <td className="px-4 py-2 border-b border-slate-800/50 text-slate-400 text-xs">
+                                    {file.owner} {file.group && <span className="text-slate-600">:{file.group}</span>}
+                                </td>
                                 <td className="px-4 py-2 border-b border-slate-800/50 text-slate-500">
                                     {formatDate(file.modifyTime)}
                                 </td>
-                                <td className="px-4 py-2 border-b border-slate-800/50 text-slate-600 text-xs">
-                                    {file.permissions}
+                                <td className="px-4 py-2 border-b border-slate-800/50 text-xs">
+                                    {renderPermissions(file.permissions)}
                                 </td>
                             </tr>
                         ))}
                         {files.length === 0 && !isLoading && (
                             <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                                     No files found
                                 </td>
                             </tr>

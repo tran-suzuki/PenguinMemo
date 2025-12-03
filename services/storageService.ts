@@ -59,35 +59,44 @@ export const validateBackupData = (data: any): data is BackupData => {
 };
 
 // Import logic ensuring unique IDs to prevent conflicts
-export const processImportData = (data: BackupData) => {
+export const processImportData = (data: BackupData, regenerateIds: boolean = false) => {
   // Create ID maps to track old -> new ID mapping
   const commandIdMap = new Map<string, string>();
   const serverIdMap = new Map<string, string>();
   const threadIdMap = new Map<string, string>();
   const configIdMap = new Map<string, string>();
 
+  // Helper to get or generate ID
+  const getId = (oldId: string, map: Map<string, string>) => {
+    if (!regenerateIds) {
+      map.set(oldId, oldId);
+      return oldId;
+    }
+    const newId = uuidv4();
+    map.set(oldId, newId);
+    return newId;
+  };
+
   // Process Commands
   const newCommands = data.commands.map(cmd => {
-    const newId = uuidv4();
-    commandIdMap.set(cmd.id, newId);
+    const newId = getId(cmd.id, commandIdMap);
     return { ...cmd, id: newId };
   });
 
   // Process Servers
   const newServers = data.servers.map(srv => {
-    const newId = uuidv4();
-    serverIdMap.set(srv.id, newId);
+    const newId = getId(srv.id, serverIdMap);
     return { ...srv, id: newId };
   });
 
   // Process Threads (update serverId reference)
-  // Process Threads (update serverId reference)
   const newThreads = data.threads
-    .filter(thread => serverIdMap.has(thread.serverId))
+    .filter(thread => !regenerateIds || serverIdMap.has(thread.serverId))
     .map(thread => {
-      const newId = uuidv4();
-      threadIdMap.set(thread.id, newId);
-      const newServerId = serverIdMap.get(thread.serverId)!;
+      const newId = getId(thread.id, threadIdMap);
+      // If not regenerating, use original serverId. If regenerating, look up new ID.
+      // Fallback to original if not found in map (shouldn't happen if filtered correctly or if not regenerating)
+      const newServerId = regenerateIds ? serverIdMap.get(thread.serverId)! : thread.serverId;
 
       return {
         ...thread,
@@ -98,10 +107,10 @@ export const processImportData = (data: BackupData) => {
 
   // Process Logs (update threadId reference)
   const newLogs = data.logs
-    .filter(log => threadIdMap.has(log.threadId))
+    .filter(log => !regenerateIds || threadIdMap.has(log.threadId))
     .map(log => {
-      const newId = uuidv4();
-      const newThreadId = threadIdMap.get(log.threadId)!;
+      const newId = getId(log.id, new Map()); // Logs don't need a map for children yet
+      const newThreadId = regenerateIds ? threadIdMap.get(log.threadId)! : log.threadId;
       return {
         ...log,
         id: newId,
@@ -111,11 +120,10 @@ export const processImportData = (data: BackupData) => {
 
   // Process Configs (update serverId reference)
   const newConfigs = (data.configs || [])
-    .filter(config => serverIdMap.has(config.serverId))
+    .filter(config => !regenerateIds || serverIdMap.has(config.serverId))
     .map(config => {
-      const newId = uuidv4();
-      configIdMap.set(config.id, newId);
-      const newServerId = serverIdMap.get(config.serverId)!;
+      const newId = getId(config.id, configIdMap);
+      const newServerId = regenerateIds ? serverIdMap.get(config.serverId)! : config.serverId;
       return {
         ...config,
         id: newId,

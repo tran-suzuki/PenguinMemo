@@ -105,6 +105,7 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
             // But wait, if we just updated currentUser, we shouldn't use it for the *previous* entry if that had its own user.
             // Actually, the previous entry should have been pushed when we encountered *its* prompt or command start.
             // So if we are here, we might have output from the previous command.
+            directory: currentDir
           });
           // Wait, if we push here, we need to be careful not to push twice.
           // Let's simplify: Context line just updates state for the *next* command.

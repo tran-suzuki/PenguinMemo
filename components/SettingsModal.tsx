@@ -17,8 +17,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Stores
   const { commands, importCommands } = useCommandStore();
-  const { servers, importServers } = useServerStore();
-  const { threads, logs, importLogsData } = useLogStore();
+  const { servers, mergeServers } = useServerStore();
+  const { threads, logs, mergeLogsData } = useLogStore();
   const { configs, importConfigs } = useConfigStore();
 
   if (!isOpen) return null;
@@ -60,8 +60,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         // Merge strategy: Append imported data to existing data
         importCommands([...commands, ...newCmds]);
-        importServers([...servers, ...newSrvs]);
-        importLogsData([...threads, ...newThreads], [...logs, ...newLogs]);
+        mergeServers(newSrvs);
+        mergeLogsData(newThreads, newLogs);
         importConfigs([...configs, ...(newConfigs || [])]);
 
         setMessage({ type: 'success', text: `インポート成功: コマンド${newCmds.length}件, サーバー${newSrvs.length}件` });

@@ -3,12 +3,16 @@ import { ServerItem, ServerThread, ServerCommandLog } from '../types';
 import { ArrowLeft, Terminal, Download, FileText, Table, ChevronUp, Plus, ListPlus, PanelLeft, Sparkles, X, ExternalLink, Search, Copy, Eye, EyeOff, Globe, Users } from 'lucide-react';
 import { useLogStore } from '../features/command-logs/stores/useLogStore';
 import { useConfigStore } from '../features/configs/stores/useConfigStore';
+import { useUIStore } from '../features/ui/stores/useUIStore';
 import { ThreadList } from './server-detail/ThreadList';
 import { LogStream } from './server-detail/LogStream';
 import { LogInputArea } from './server-detail/LogInputArea';
 import { BulkLogImportModal } from './server-detail/BulkLogImportModal';
 import { BulkConfigImportModal } from './server-detail/BulkConfigImportModal';
+import { LinkOpenConfirmModal } from './LinkOpenConfirmModal';
+import { ImportToLogsModal } from './server-detail/ImportToLogsModal';
 import { SearchResults } from './server-detail/SearchResults';
+import { parseConfigsFromOutput } from '../utils/configParser';
 import { ConfigList } from './server-detail/ConfigList';
 import { ConfigEditor } from './server-detail/ConfigEditor';
 import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
@@ -52,6 +56,11 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   const [currentDirectory, setCurrentDirectory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [linkToOpen, setLinkToOpen] = useState<string | null>(null);
+
+  // Manual Import State
+  const [isImportLogsModalOpen, setIsImportLogsModalOpen] = useState(false);
+  const [importLogContent, setImportLogContent] = useState('');
 
 
   // Gemini Sidebar State
@@ -92,18 +101,33 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     };
   }, [isResizingGemini]);
 
-  // Sync Gemini BrowserView with Sidebar
+  // Lifecycle: Open/Close Gemini
   useEffect(() => {
-    if (!isGeminiOpen || !window.electronAPI) {
-      window.electronAPI?.closeGemini();
-      return;
+    if (isGeminiOpen && window.electronAPI) {
+      window.electronAPI.openGemini();
     }
+    return () => {
+      if (window.electronAPI) {
+        window.electronAPI.closeGemini();
+      }
+    };
+  }, [isGeminiOpen]);
+
+  // Sync Layout: Resize Gemini
+  const { isServerModalOpen, isCommandModalOpen, isSettingsModalOpen } = useUIStore();
+
+  useEffect(() => {
+    if (!isGeminiOpen || !window.electronAPI) return;
 
     const updateGeminiBounds = () => {
+      // If any modal is open, hide Gemini by setting size to 0
+      if (isServerModalOpen || isCommandModalOpen || isSettingsModalOpen || isBulkModalOpen || isBulkConfigModalOpen) {
+        window.electronAPI.resizeGemini({ x: 0, y: 0, width: 0, height: 0 });
+        return;
+      }
+
       if (geminiSidebarRef.current) {
         const rect = geminiSidebarRef.current.getBoundingClientRect();
-        // Account for high DPI if necessary, but usually Electron handles logical pixels
-        // We need to pass the bounds relative to the window
         window.electronAPI.resizeGemini({
           x: Math.round(rect.x),
           y: Math.round(rect.y),
@@ -113,11 +137,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
       }
     };
 
-    // Open Gemini
-    window.electronAPI.openGemini();
-
     // Initial resize
-    // Small delay to ensure layout is computed
     setTimeout(updateGeminiBounds, 50);
 
     // Update on resize
@@ -134,9 +154,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateGeminiBounds);
-      window.electronAPI.closeGemini();
     };
-  }, [isGeminiOpen, geminiSidebarWidth]); // Re-run when open state or width changes
+  }, [isGeminiOpen, geminiSidebarWidth, isServerModalOpen, isCommandModalOpen, isSettingsModalOpen, isBulkModalOpen, isBulkConfigModalOpen]);
 
 
   // Terminal State
@@ -268,8 +287,54 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     setShowExportMenu(false);
   };
 
+  const handleManualImportLogs = (content: string) => {
+    setImportLogContent(content);
+    setIsImportLogsModalOpen(true);
+  };
+
+  const handleManualImportConfigs = (content: string) => {
+    // Reuse existing bulk config import logic
+    // We need to parse it first to see if it matches our format
+    const configs = parseConfigsFromOutput(content);
+    if (configs.length > 0) {
+      handleBulkConfigImport(configs);
+      alert(`${configs.length} config(s) imported successfully.`);
+    } else {
+      // If no configs detected, maybe open the bulk modal with this content?
+      // For now, let's just alert
+      alert('No valid config format detected in selection.\nExpected format:\n[user@host path]$ cat filename\ncontent...');
+    }
+  };
+
+  const handleConfirmImportLogs = (threadId: string, content: string, newThreadTitle?: string) => {
+    let targetThreadId = threadId;
+
+    if (threadId === 'new' && newThreadTitle) {
+      targetThreadId = addThread(server.id, newThreadTitle);
+      setActiveThreadId(targetThreadId);
+    } else {
+      setActiveThreadId(threadId);
+    }
+
+    // Add log to thread
+    // We'll treat this as a "command" output, but maybe we should split it?
+    // For simplicity, let's add it as a note or a generic log entry
+    // Since our log structure requires a command, we can use a placeholder or the first line
+    const lines = content.split('\n');
+    const firstLine = lines[0].length > 50 ? lines[0].substring(0, 50) + '...' : lines[0];
+
+    addLog(
+      targetThreadId,
+      'Manual Import',
+      content,
+      'User'
+    );
+
+    setIsImportLogsModalOpen(false);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-slate-950">
+    <div className="flex flex-col h-full bg-slate-950 text-slate-200">
       {/* Header */}
       <header
         className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900 shrink-0 z-20"
@@ -357,6 +422,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
             </h2>
             <div className="flex items-center gap-2">
               <div className="text-xs text-slate-500 font-mono">{server.username}@{server.host}</div>
+              <div className="w-[1px] h-3 bg-slate-700 mx-1"></div>
+              <div className="text-[10px] text-slate-600 font-mono" title="Server ID">ID: {server.id}</div>
               {server.envInfo && server.envInfo.length > 0 && (
                 <div className="flex items-center gap-1">
                   <div className="w-[1px] h-3 bg-slate-700 mx-1"></div>
@@ -494,16 +561,14 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
 
           {server.controlPanelUrl && (
             <div className="relative group">
-              <a
-                href={server.controlPanelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => setLinkToOpen(server.controlPanelUrl!)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
                 title="コントロールパネルを開く"
               >
                 <ExternalLink size={16} />
                 <span className="text-xs font-medium hidden sm:inline">Console</span>
-              </a>
+              </button>
 
               {/* Hover Card for Credentials */}
               {(server.controlPanelUser || server.controlPanelPassword) && (
@@ -694,6 +759,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
                 onAddTab={handleAddTerminalTab}
                 onCloseTab={handleCloseTerminalTab}
                 onSelectTab={setActiveTerminalId}
+                onImportLogs={handleManualImportLogs}
+                onImportConfigs={handleManualImportConfigs}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-600 p-8 text-center">
@@ -849,6 +916,34 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
         isOpen={isBulkConfigModalOpen}
         onClose={() => setIsBulkConfigModalOpen(false)}
         onImport={handleBulkConfigImport}
+      />
+
+      <LinkOpenConfirmModal
+        isOpen={!!linkToOpen}
+        onClose={() => setLinkToOpen(null)}
+        url={linkToOpen || ''}
+        onConfirm={(mode) => {
+          if (linkToOpen) {
+            if (mode === 'app') {
+              window.open(linkToOpen, '_blank', 'width=1200,height=800');
+            } else {
+              if (window.electronAPI) {
+                window.electronAPI.openExternal(linkToOpen);
+              } else {
+                window.open(linkToOpen, '_blank');
+              }
+            }
+            setLinkToOpen(null);
+          }
+        }}
+      />
+
+      <ImportToLogsModal
+        isOpen={isImportLogsModalOpen}
+        onClose={() => setIsImportLogsModalOpen(false)}
+        initialContent={importLogContent}
+        threads={serverThreads}
+        onImport={handleConfirmImportLogs}
       />
     </div >
   );

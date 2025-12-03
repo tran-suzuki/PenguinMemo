@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, BrowserView } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, BrowserView, shell } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'ssh2'
@@ -191,13 +191,23 @@ ipcMain.handle('sftp-list', async (event, { id, path: remotePath }) => {
                     return;
                 }
 
-                const files = list.map(item => ({
-                    name: item.filename,
-                    isDirectory: item.longname.startsWith('d'),
-                    size: item.attrs.size,
-                    modifyTime: item.attrs.mtime * 1000,
-                    permissions: item.longname.split(' ')[0]
-                }));
+                const files = list.map(item => {
+                    // Parse longname for owner/group
+                    // Format: -rw-r--r-- 1 owner group size date time name
+                    const parts = item.longname.split(/\s+/);
+                    const owner = parts.length > 2 ? parts[2] : '';
+                    const group = parts.length > 3 ? parts[3] : '';
+
+                    return {
+                        name: item.filename,
+                        isDirectory: item.longname.startsWith('d'),
+                        size: item.attrs.size,
+                        modifyTime: item.attrs.mtime * 1000,
+                        permissions: item.longname.split(' ')[0],
+                        owner,
+                        group
+                    };
+                });
 
                 resolve(files);
             });
@@ -257,6 +267,58 @@ ipcMain.handle('sftp-download', async (event, { id, remotePath, localPath }) => 
     });
 });
 
+ipcMain.handle('sftp-mkdir', async (event, { id, path: remotePath }) => {
+    return new Promise((resolve, reject) => {
+        const conn = sshConnections.get(id);
+        if (!conn) {
+            reject('Connection not found');
+            return;
+        }
+
+        conn.sftp((err, sftp) => {
+            if (err) {
+                reject(err.message);
+                return;
+            }
+
+            sftp.mkdir(remotePath, (err) => {
+                sftp.end();
+                if (err) {
+                    reject(err.message);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    });
+});
+
+ipcMain.handle('sftp-rename', async (event, { id, oldPath, newPath }) => {
+    return new Promise((resolve, reject) => {
+        const conn = sshConnections.get(id);
+        if (!conn) {
+            reject('Connection not found');
+            return;
+        }
+
+        conn.sftp((err, sftp) => {
+            if (err) {
+                reject(err.message);
+                return;
+            }
+
+            sftp.rename(oldPath, newPath, (err) => {
+                sftp.end();
+                if (err) {
+                    reject(err.message);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    });
+});
+
 // --- Dialog Handlers ---
 
 ipcMain.handle('dialog:open-file', async () => {
@@ -279,6 +341,19 @@ ipcMain.handle('dialog:save-file', async (event, { defaultPath }) => {
     } else {
         return filePath;
     }
+});
+
+ipcMain.handle('shell:open-external', async (event, { url }) => {
+    await shell.openExternal(url);
+});
+
+// --- Window Open Handler ---
+// Allow window.open to create new windows (for "Open in App")
+app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+        // Allow all internal window opens
+        return { action: 'allow' };
+    });
 });
 
 // --- Gemini BrowserView Implementation ---

@@ -3,6 +3,7 @@ import { ServerWebApp } from '../../types';
 import { ExternalLink, Edit2, Trash2, Plus, Copy, Check } from 'lucide-react';
 import { WebAppModal } from './WebAppModal';
 import { useServerStore } from '../../features/servers/stores/useServerStore';
+import { LinkOpenConfirmModal } from '../LinkOpenConfirmModal';
 
 interface WebAppListProps {
     serverId: string;
@@ -13,6 +14,7 @@ export const WebAppList: React.FC<WebAppListProps> = ({ serverId, webApps }) => 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingWebApp, setEditingWebApp] = useState<ServerWebApp | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [linkToOpen, setLinkToOpen] = useState<string | null>(null);
 
     const { deleteWebApp } = useServerStore();
 
@@ -65,15 +67,13 @@ export const WebAppList: React.FC<WebAppListProps> = ({ serverId, webApps }) => 
                             <div className="flex items-start justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <h4 className="font-medium text-slate-200">{app.name}</h4>
-                                    <a
-                                        href={app.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                    <button
+                                        onClick={() => setLinkToOpen(app.url)}
                                         className="text-slate-500 hover:text-blue-400 transition-colors"
                                         title="Open URL"
                                     >
                                         <ExternalLink size={14} />
-                                    </a>
+                                    </button>
                                 </div>
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
@@ -138,6 +138,26 @@ export const WebAppList: React.FC<WebAppListProps> = ({ serverId, webApps }) => 
                 onClose={() => setIsModalOpen(false)}
                 serverId={serverId}
                 webApp={editingWebApp}
+            />
+
+            <LinkOpenConfirmModal
+                isOpen={!!linkToOpen}
+                onClose={() => setLinkToOpen(null)}
+                url={linkToOpen || ''}
+                onConfirm={(mode) => {
+                    if (linkToOpen) {
+                        if (mode === 'app') {
+                            window.open(linkToOpen, '_blank', 'width=1200,height=800');
+                        } else {
+                            if (window.electronAPI) {
+                                window.electronAPI.openExternal(linkToOpen);
+                            } else {
+                                window.open(linkToOpen, '_blank');
+                            }
+                        }
+                        setLinkToOpen(null);
+                    }
+                }}
             />
         </div>
     );

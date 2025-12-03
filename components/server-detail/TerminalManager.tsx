@@ -15,6 +15,8 @@ interface TerminalManagerProps {
     onAddTab: () => void;
     onCloseTab: (id: string) => void;
     onSelectTab: (id: string) => void;
+    onImportLogs: (content: string) => void;
+    onImportConfigs: (content: string) => void;
 }
 
 export const TerminalManager: React.FC<TerminalManagerProps> = ({
@@ -23,7 +25,9 @@ export const TerminalManager: React.FC<TerminalManagerProps> = ({
     activeTabId,
     onAddTab,
     onCloseTab,
-    onSelectTab
+    onSelectTab,
+    onImportLogs,
+    onImportConfigs
 }) => {
     return (
         <div className="flex flex-col h-full bg-slate-950">
@@ -92,7 +96,12 @@ export const TerminalManager: React.FC<TerminalManagerProps> = ({
                             key={tab.id}
                             className={`absolute inset-0 w-full h-full ${activeTabId === tab.id ? 'z-10 visible' : 'z-0 invisible'}`}
                         >
-                            <SSHTerminal server={server} terminalId={tab.id} />
+                            <SSHTerminal
+                                server={server}
+                                terminalId={tab.id}
+                                onImportLogs={onImportLogs}
+                                onImportConfigs={onImportConfigs}
+                            />
                         </div>
                     ))
                 )}

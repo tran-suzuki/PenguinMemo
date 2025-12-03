@@ -14,6 +14,7 @@ interface ServerState {
     updateServer: (id: string, draft: Partial<ServerDraft>) => void;
     deleteServer: (id: string) => void;
     importServers: (servers: ServerItem[]) => void;
+    mergeServers: (servers: ServerItem[]) => void;
 
     // Actions - Web Apps
     addWebApp: (serverId: string, webApp: Omit<ServerWebApp, 'id'>) => void;
@@ -53,6 +54,14 @@ export const useServerStore = create<ServerState>()(
             })),
 
             importServers: (servers) => set({ servers }),
+
+            mergeServers: (newServers) => set((state) => {
+                const serverMap = new Map(state.servers.map(s => [s.id, s]));
+                newServers.forEach(server => {
+                    serverMap.set(server.id, server);
+                });
+                return { servers: Array.from(serverMap.values()) };
+            }),
 
             addWebApp: (serverId, webApp) => set((state) => ({
                 servers: state.servers.map(srv => {

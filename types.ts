@@ -118,3 +118,13 @@ export interface BackupData {
   logs: ServerCommandLog[];
   configs?: ServerConfig[];
 }
+
+export interface SFTPFile {
+  name: string;
+  isDirectory: boolean;
+  size: number;
+  modifyTime: number;
+  permissions: string;
+  owner?: string;
+  group?: string;
+}

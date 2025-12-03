@@ -54,6 +54,9 @@ export const ServerCard: React.FC<ServerCardProps> = ({ item, onDelete, onEdit, 
                 {tag}
               </span>
             ))}
+            <span className="text-[10px] text-slate-600 font-mono ml-1" title="Server ID">
+              #{item.id}
+            </span>
           </div>
           <h3 className="font-bold text-lg text-slate-100 flex items-center gap-2">
             <Server size={18} style={{ color: item.themeColor || '#60a5fa' }} />

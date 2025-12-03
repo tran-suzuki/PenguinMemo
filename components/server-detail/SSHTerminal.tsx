@@ -9,14 +9,12 @@ import { useUIStore } from '../../features/ui/stores/useUIStore';
 
 interface SSHTerminalProps {
     server: ServerItem;
-}
-
-interface SSHTerminalProps {
-    server: ServerItem;
     terminalId: string;
+    onImportLogs?: (content: string) => void;
+    onImportConfigs?: (content: string) => void;
 }
 
-export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) => {
+export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, onImportLogs, onImportConfigs }) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -129,7 +127,8 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) 
             term.dispose();
             isConnectedRef.current = false;
         };
-    }, [server, terminalId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [terminalId]);
 
     // Re-fit on container resize (using ResizeObserver)
     useEffect(() => {
@@ -152,7 +151,21 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) 
     // Handle Context Menu
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY });
+        const menuWidth = 192; // w-48
+        const menuHeight = 180; // Approximate height
+
+        let x = e.clientX;
+        let y = e.clientY;
+
+        if (x + menuWidth > window.innerWidth) {
+            x = window.innerWidth - menuWidth - 10;
+        }
+
+        if (y + menuHeight > window.innerHeight) {
+            y = y - menuHeight;
+        }
+
+        setContextMenu({ x, y });
     };
 
     // Close context menu on click
@@ -180,6 +193,26 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) 
             }
         } catch (err) {
             console.error('Failed to read clipboard:', err);
+        }
+        setContextMenu(null);
+    };
+
+    const handleImportToLogs = () => {
+        if (xtermRef.current && onImportLogs) {
+            const selection = xtermRef.current.getSelection();
+            if (selection) {
+                onImportLogs(selection);
+            }
+        }
+        setContextMenu(null);
+    };
+
+    const handleImportToConfigs = () => {
+        if (xtermRef.current && onImportConfigs) {
+            const selection = xtermRef.current.getSelection();
+            if (selection) {
+                onImportConfigs(selection);
+            }
         }
         setContextMenu(null);
     };
@@ -222,7 +255,7 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) 
             {/* Context Menu */}
             {contextMenu && (
                 <div
-                    className="fixed z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 w-32"
+                    className="fixed z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 w-48"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                 >
                     <button
@@ -236,6 +269,19 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId }) 
                         className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2"
                     >
                         <Clipboard size={14} /> Paste
+                    </button>
+                    <div className="my-1 border-t border-slate-700" />
+                    <button
+                        onClick={handleImportToLogs}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2"
+                    >
+                        <Clipboard size={14} className="text-blue-400" /> Import to Logs
+                    </button>
+                    <button
+                        onClick={handleImportToConfigs}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2"
+                    >
+                        <Clipboard size={14} className="text-green-400" /> Import to Configs
                     </button>
                 </div>
             )}

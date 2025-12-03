@@ -62,6 +62,13 @@
       "target": "nsis",
       "icon": "public/favicon.ico"
     },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "public/icon.png"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true

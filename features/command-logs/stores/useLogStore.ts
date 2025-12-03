@@ -9,7 +9,7 @@ interface LogState {
     logs: ServerCommandLog[];
 
     // Actions - Threads
-    addThread: (serverId: string, title: string) => void;
+    addThread: (serverId: string, title: string) => string;
     updateThread: (threadId: string, updates: Partial<ServerThread>) => void;
     reorderThreads: (activeId: string, overId: string) => void;
     deleteThread: (threadId: string) => void;
@@ -31,6 +31,7 @@ interface LogState {
     reorderLogs: (activeId: string, overId: string) => void;
 
     importLogsData: (threads: ServerThread[], logs: ServerCommandLog[]) => void;
+    mergeLogsData: (threads: ServerThread[], logs: ServerCommandLog[]) => void;
 }
 
 export const useLogStore = create<LogState>()(
@@ -39,23 +40,27 @@ export const useLogStore = create<LogState>()(
             threads: [],
             logs: [],
 
-            addThread: (serverId, title) => set((state) => {
-                const serverThreads = state.threads.filter(t => t.serverId === serverId);
-                const maxOrder = serverThreads.length > 0
-                    ? Math.max(...serverThreads.map(t => t.order ?? 0))
-                    : -1;
+            addThread: (serverId, title) => {
+                const newId = uuidv4();
+                set((state) => {
+                    const serverThreads = state.threads.filter(t => t.serverId === serverId);
+                    const maxOrder = serverThreads.length > 0
+                        ? Math.max(...serverThreads.map(t => t.order ?? 0))
+                        : -1;
 
-                return {
-                    threads: [{
-                        id: uuidv4(),
-                        serverId,
-                        title,
-                        order: maxOrder + 1,
-                        createdAt: Date.now(),
-                        updatedAt: Date.now()
-                    }, ...state.threads]
-                };
-            }),
+                    return {
+                        threads: [{
+                            id: newId,
+                            serverId,
+                            title,
+                            order: maxOrder + 1,
+                            createdAt: Date.now(),
+                            updatedAt: Date.now()
+                        }, ...state.threads]
+                    };
+                });
+                return newId;
+            },
 
             updateThread: (threadId, updates) => set((state) => ({
                 threads: state.threads.map(t =>
@@ -188,6 +193,23 @@ export const useLogStore = create<LogState>()(
             }),
 
             importLogsData: (threads, logs) => set({ threads, logs }),
+
+            mergeLogsData: (newThreads, newLogs) => set((state) => {
+                const threadMap = new Map(state.threads.map(t => [t.id, t]));
+                newThreads.forEach(thread => {
+                    threadMap.set(thread.id, thread);
+                });
+
+                const logMap = new Map(state.logs.map(l => [l.id, l]));
+                newLogs.forEach(log => {
+                    logMap.set(log.id, log);
+                });
+
+                return {
+                    threads: Array.from(threadMap.values()),
+                    logs: Array.from(logMap.values())
+                };
+            }),
         }),
         {
             name: 'penguin-memo-logs',

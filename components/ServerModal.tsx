@@ -173,34 +173,57 @@ export const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSav
                     value={draft.authValue}
                     onChange={(e) => setDraft({ ...draft, authValue: e.target.value })}
                     className="w-full h-20 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder={draft.authType === 'password' ? 'パスワードを入力' : '/path/to/private/key または鍵の内容'}
+                    placeholder={draft.authType === 'password' ? 'パスワードを入力' : '/path/to/private/key または鍵の内容 (パスフレーズがある場合は下のパスワード欄に入力)'}
                   />
                   {draft.authType === 'key' && (
-                    <div className="mt-2 flex justify-end">
-                      <input
-                        type="file"
-                        id="private-key-file"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              if (ev.target?.result) {
-                                setDraft({ ...draft, authValue: ev.target.result as string });
-                              }
-                            };
-                            reader.readAsText(file);
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => document.getElementById('private-key-file')?.click()}
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                      >
-                        <Key size={12} /> ファイルから読み込む
-                      </button>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex justify-end">
+                        <input
+                          type="file"
+                          id="private-key-file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                if (ev.target?.result) {
+                                  setDraft({ ...draft, authValue: ev.target.result as string });
+                                }
+                              };
+                              reader.readAsText(file);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('private-key-file')?.click()}
+                          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                        >
+                          <Key size={12} /> ファイルから読み込む
+                        </button>
+                      </div>
+
+                      {/* Passphrase Input for Key */}
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">パスフレーズ (暗号化されている場合)</label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={draft.password || ''} // Assuming 'password' field is used for passphrase
+                            onChange={(e) => setDraft({ ...draft, password: e.target.value })} // We need to ensure 'password' field exists in draft/type
+                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-blue-500 outline-none pr-8"
+                            placeholder="Passphrase"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                          >
+                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
