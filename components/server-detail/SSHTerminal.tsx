@@ -46,31 +46,12 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
         term.loadAddon(fitAddon);
         term.loadAddon(webLinksAddon);
 
-        // Custom key event handler for special keys
-        term.attachCustomKeyEventHandler((arg) => {
-            if (arg.type !== 'keydown') {
-                return true;
-            }
-
-            if (arg.key === 'Home') {
-                window.electronAPI?.sendSSHData(terminalId, '\x1b[H');
-                return false;
-            }
-            if (arg.key === 'End') {
-                window.electronAPI?.sendSSHData(terminalId, '\x1b[F');
-                return false;
-            }
-            if (arg.key === 'PageUp') {
-                window.electronAPI?.sendSSHData(terminalId, '\x1b[5~');
-                return false;
-            }
-            if (arg.key === 'PageDown') {
-                window.electronAPI?.sendSSHData(terminalId, '\x1b[6~');
-                return false;
-            }
-
-            return true;
-        });
+        // Home/End/PageUp/PageDown はxterm.jsのネイティブ処理に任せる。
+        // xterm.jsはアプリケーションカーソルモード(DECCKM)を考慮し、
+        // viやlessなどがモードを有効化した際は \x1bOH / \x1bOF を、
+        // 通常時は \x1b[H / \x1b[F を送出する。
+        // 独自ハンドラで常に通常モードのシーケンスを送ると、
+        // viでHome/Endが効かなくなるため上書きしない。
 
         term.open(terminalRef.current);
 
@@ -215,8 +196,12 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
-            if (text && isConnectedRef.current) {
-                window.electronAPI.sendSSHData(terminalId, text);
+            if (text && isConnectedRef.current && xtermRef.current) {
+                // term.paste() が改行コードを正規化(\r\n/\n → \r)し、
+                // 必要に応じてブラケットペーストで囲む。これによりWindowsの
+                // クリップボード(CRLF)を貼り付けた際に余分な改行が入らない。
+                // paste() は onData を発火するので sendSSHData 経由で送信される。
+                xtermRef.current.paste(text);
             }
         } catch (err) {
             console.error('Failed to read clipboard:', err);
