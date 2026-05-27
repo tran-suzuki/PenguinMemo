@@ -69,7 +69,11 @@ export function registerSSHHandlers(getWin: () => BrowserWindow | null) {
                 username,
                 password: finalPassphrase, // Use original password if no key, or undefined if PPK converted
                 privateKey: finalPrivateKey,
-                passphrase: finalPassphrase // Use original password as passphrase for standard OpenSSH keys
+                passphrase: finalPassphrase, // Use original password as passphrase for standard OpenSSH keys
+                // 無通信が続いてもサーバー側のアイドルタイムアウトで切断されないよう、
+                // 30秒ごとに keepalive を送る。応答が連続して途絶えた場合のみ切断する。
+                keepaliveInterval: 30000,
+                keepaliveCountMax: 10
             });
         });
     });
