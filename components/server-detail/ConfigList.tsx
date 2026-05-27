@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ServerConfig } from '../../types';
-import { File, Folder, FolderOpen, Plus, Trash2, FileCode, Settings, Clock, Server, Database, Terminal, Code, Shield } from 'lucide-react';
+import { File, Folder, FolderOpen, Plus, Trash2, FileCode, Settings, Clock, Server, Database, Terminal, Code, Shield, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface ConfigListProps {
     configs: ServerConfig[];
@@ -156,7 +156,7 @@ export const ConfigList: React.FC<ConfigListProps> = ({
         return (
             <div key={node.path}>
                 <div
-                    className={`flex items-center gap-2 py-1 px-2 cursor-pointer transition-colors group ${isActive ? 'bg-blue-900/30 text-blue-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    className={`flex items-center gap-1.5 py-1 px-2 cursor-pointer transition-colors group ${isActive ? 'bg-blue-900/30 text-blue-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
                     style={{ paddingLeft: `${level * 12 + 8}px` }}
                     onClick={() => {
@@ -169,12 +169,18 @@ export const ConfigList: React.FC<ConfigListProps> = ({
                 >
                     {node.type === 'folder' ? (
                         <>
-                            {isExpanded ? <FolderOpen size={14} className="text-yellow-500" /> : <Folder size={14} className="text-yellow-500" />}
+                            {isExpanded
+                                ? <ChevronDown size={14} className="text-slate-500 shrink-0" />
+                                : <ChevronRight size={14} className="text-slate-500 shrink-0" />}
+                            {isExpanded
+                                ? <FolderOpen size={14} className="text-yellow-500 shrink-0" />
+                                : <Folder size={14} className="text-yellow-500 shrink-0" />}
                             <span className="text-xs truncate">{node.name}</span>
                         </>
                     ) : (
                         <>
-                            {getIcon(node.configType || 'other')}
+                            <span className="w-3.5 shrink-0" />
+                            <span className="shrink-0">{getIcon(node.configType || 'other')}</span>
                             <span className="text-xs truncate flex-1">{node.name}</span>
                             <button
                                 onClick={(e) => {
