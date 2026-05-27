@@ -1,8 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, BrowserView, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
-import { Client } from 'ssh2'
 import fs from 'fs'
+import { registerSSHHandlers, getConnection } from './handlers/ssh'
+import { registerSFTPHandlers } from './handlers/sftp'
+import { registerDialogHandlers } from './handlers/dialog'
+import { registerShellHandlers } from './handlers/shell'
+import { registerGeminiHandlers } from './handlers/gemini'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logPath = path.join(app.getPath('userData'), 'electron-debug.log');
@@ -74,321 +78,23 @@ app.on('activate', () => {
     }
 })
 
-app.whenReady().then(createWindow)
-
-// --- SSH Implementation ---
-
-const sshConnections = new Map<string, Client>();
-
-import { convert } from 'ppk-to-openssh';
-
-ipcMain.handle('ssh-connect', async (event, { id, host, port, username, password, privateKey }) => {
-    return new Promise((resolve, reject) => {
-        const conn = new Client();
-
-        let finalPrivateKey = privateKey;
-        let finalPassphrase = password;
-
-        // Handle PuTTY Private Key (PPK)
-        if (privateKey && privateKey.trim().startsWith('PuTTY-User-Key-File-')) {
-            try {
-                // Convert PPK to OpenSSH format
-                // If the key is encrypted, 'password' is used as the passphrase
-                finalPrivateKey = convert(privateKey, password || '');
-                // After conversion, the key is unencrypted (PEM), so we don't need to pass the passphrase to ssh2
-                finalPassphrase = undefined;
-            } catch (err: any) {
-                console.error(`SSH Client :: PPK Conversion Error (${id})`, err);
-                reject(`PPK Conversion Failed: ${err.message}`);
-                return;
-            }
-        }
-
-        conn.on('ready', () => {
-            console.log(`SSH Client :: ready (${id})`);
-
-            conn.shell({ term: 'xterm-256color' }, (err, stream) => {
-                if (err) {
-                    reject(err.message);
-                    return;
-                }
-
-                sshConnections.set(id, conn);
-
-                // Handle output from server
-                stream.on('data', (data: Buffer) => {
-                    win?.webContents.send(`ssh-data-${id}`, data.toString());
-                });
-
-                stream.on('close', () => {
-                    console.log(`SSH Client :: stream closed (${id})`);
-                    conn.end();
-                    sshConnections.delete(id);
-                    win?.webContents.send(`ssh-closed-${id}`);
-                });
-
-                // Store stream for writing
-                (conn as any)._stream = stream;
-
-                resolve(true);
-            });
-        }).on('error', (err) => {
-            console.error(`SSH Client :: error (${id})`, err);
-            reject(err.message);
-        }).connect({
-            host,
-            port: parseInt(port) || 22,
-            username,
-            password: finalPassphrase, // Use original password if no key, or undefined if PPK converted
-            privateKey: finalPrivateKey,
-            passphrase: finalPassphrase // Use original password as passphrase for standard OpenSSH keys
-        });
-    });
-});
-
-ipcMain.on('ssh-data', (event, { id, data }) => {
-    const conn = sshConnections.get(id);
-    if (conn && (conn as any)._stream) {
-        (conn as any)._stream.write(data);
-    }
-});
-
-ipcMain.on('ssh-resize', (event, { id, cols, rows }) => {
-    const conn = sshConnections.get(id);
-    if (conn && (conn as any)._stream) {
-        (conn as any)._stream.setWindow(rows, cols, 0, 0);
-    }
-});
-
-ipcMain.on('ssh-disconnect', (event, { id }) => {
-    const conn = sshConnections.get(id);
-    if (conn) {
-        conn.end();
-        sshConnections.delete(id);
-    }
-});
-
-// --- SFTP Implementation ---
-
-ipcMain.handle('sftp-list', async (event, { id, path: remotePath }) => {
-    return new Promise((resolve, reject) => {
-        const conn = sshConnections.get(id);
-        if (!conn) {
-            reject('Connection not found');
-            return;
-        }
-
-        conn.sftp((err, sftp) => {
-            if (err) {
-                reject(err.message);
-                return;
-            }
-
-            sftp.readdir(remotePath, (err, list) => {
-                sftp.end();
-                if (err) {
-                    reject(err.message);
-                    return;
-                }
-
-                const files = list.map(item => {
-                    // Parse longname for owner/group
-                    // Format: -rw-r--r-- 1 owner group size date time name
-                    const parts = item.longname.split(/\s+/);
-                    const owner = parts.length > 2 ? parts[2] : '';
-                    const group = parts.length > 3 ? parts[3] : '';
-
-                    return {
-                        name: item.filename,
-                        isDirectory: item.longname.startsWith('d'),
-                        size: item.attrs.size,
-                        modifyTime: item.attrs.mtime * 1000,
-                        permissions: item.longname.split(' ')[0],
-                        owner,
-                        group
-                    };
-                });
-
-                resolve(files);
-            });
-        });
-    });
-});
-
-ipcMain.handle('sftp-upload', async (event, { id, localPath, remotePath }) => {
-    return new Promise((resolve, reject) => {
-        const conn = sshConnections.get(id);
-        if (!conn) {
-            reject('Connection not found');
-            return;
-        }
-
-        conn.sftp((err, sftp) => {
-            if (err) {
-                reject(err.message);
-                return;
-            }
-
-            sftp.fastPut(localPath, remotePath, (err) => {
-                sftp.end();
-                if (err) {
-                    reject(err.message);
-                } else {
-                    resolve(true);
-                }
-            });
-        });
-    });
-});
-
-ipcMain.handle('sftp-download', async (event, { id, remotePath, localPath }) => {
-    return new Promise((resolve, reject) => {
-        const conn = sshConnections.get(id);
-        if (!conn) {
-            reject('Connection not found');
-            return;
-        }
-
-        conn.sftp((err, sftp) => {
-            if (err) {
-                reject(err.message);
-                return;
-            }
-
-            sftp.fastGet(remotePath, localPath, (err) => {
-                sftp.end();
-                if (err) {
-                    reject(err.message);
-                } else {
-                    resolve(true);
-                }
-            });
-        });
-    });
-});
-
-ipcMain.handle('sftp-mkdir', async (event, { id, path: remotePath }) => {
-    return new Promise((resolve, reject) => {
-        const conn = sshConnections.get(id);
-        if (!conn) {
-            reject('Connection not found');
-            return;
-        }
-
-        conn.sftp((err, sftp) => {
-            if (err) {
-                reject(err.message);
-                return;
-            }
-
-            sftp.mkdir(remotePath, (err) => {
-                sftp.end();
-                if (err) {
-                    reject(err.message);
-                } else {
-                    resolve(true);
-                }
-            });
-        });
-    });
-});
-
-ipcMain.handle('sftp-rename', async (event, { id, oldPath, newPath }) => {
-    return new Promise((resolve, reject) => {
-        const conn = sshConnections.get(id);
-        if (!conn) {
-            reject('Connection not found');
-            return;
-        }
-
-        conn.sftp((err, sftp) => {
-            if (err) {
-                reject(err.message);
-                return;
-            }
-
-            sftp.rename(oldPath, newPath, (err) => {
-                sftp.end();
-                if (err) {
-                    reject(err.message);
-                } else {
-                    resolve(true);
-                }
-            });
-        });
-    });
-});
-
-// --- Dialog Handlers ---
-
-ipcMain.handle('dialog:open-file', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
-        properties: ['openFile']
-    });
-    if (canceled) {
-        return null;
-    } else {
-        return filePaths[0];
-    }
-});
-
-ipcMain.handle('dialog:save-file', async (event, { defaultPath }) => {
-    const { canceled, filePath } = await dialog.showSaveDialog(win!, {
-        defaultPath
-    });
-    if (canceled) {
-        return null;
-    } else {
-        return filePath;
-    }
-});
-
-ipcMain.handle('shell:open-external', async (event, { url }) => {
-    await shell.openExternal(url);
-});
-
 // --- Window Open Handler ---
 // Allow window.open to create new windows (for "Open in App")
-app.on('web-contents-created', (event, contents) => {
-    contents.setWindowOpenHandler(({ url }) => {
+app.on('web-contents-created', (_event, contents) => {
+    contents.setWindowOpenHandler(() => {
         // Allow all internal window opens
         return { action: 'allow' };
     });
 });
 
-// --- Gemini BrowserView Implementation ---
+app.whenReady().then(() => {
+    createWindow();
 
-let geminiView: BrowserView | null = null;
-
-ipcMain.on('gemini:open', (event) => {
-    if (geminiView) return; // Already open
-
-    if (!win) return;
-
-    geminiView = new BrowserView({
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-        }
-    });
-
-    win.setBrowserView(geminiView);
-    geminiView.webContents.loadURL('https://gemini.google.com/app');
-
-    // Initial bounds - will be updated by resize event immediately
-    geminiView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
-});
-
-ipcMain.on('gemini:resize', (event, bounds) => {
-    if (geminiView) {
-        geminiView.setBounds(bounds);
-    }
-});
-
-ipcMain.on('gemini:close', (event) => {
-    if (geminiView && win) {
-        win.removeBrowserView(geminiView);
-        // geminiView.webContents.destroy(); // Optional: destroy if you want to clear state
-        geminiView = null;
-    }
-});
+    // Register IPC handlers, injecting shared dependencies
+    const getWin = () => win;
+    registerSSHHandlers(getWin);
+    registerSFTPHandlers(getConnection);
+    registerDialogHandlers(getWin);
+    registerShellHandlers();
+    registerGeminiHandlers(getWin);
+})
