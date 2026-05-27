@@ -1,3 +1,5 @@
+import { STANDARD_PROMPT_REGEX, CONTEXT_LINE_REGEX, COMMAND_LINE_REGEX } from './promptPatterns';
+
 export interface ParsedConfig {
     id: string;
     path: string;
@@ -33,15 +35,10 @@ export const parseConfigsFromOutput = (rawInput: string): ParsedConfig[] => {
     let currentFile: string | null = null;
     let currentContent: string[] = [];
 
-    // Regex to detect prompt lines
-    // Standard: [user@host dir]$ command
-    const standardPromptRegex = /^\[?([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+(?:\s+|:)([^\]\$#]+)\]?[\$#]\s+(.*)$/;
-
-    // Multi-line context: [user@host dir][branch]
-    const contextLineRegex = /^\[([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+\s+([^\]]+)\](?:\[.*\])?$/;
-
-    // Multi-line command: > command
-    const commandLineRegex = /^>\s+(.*)$/;
+    // Regex to detect prompt lines (共通定義: utils/promptPatterns.ts)
+    const standardPromptRegex = STANDARD_PROMPT_REGEX;
+    const contextLineRegex = CONTEXT_LINE_REGEX;
+    const commandLineRegex = COMMAND_LINE_REGEX;
 
     // State flags
     let expectingPwdOutput = false;

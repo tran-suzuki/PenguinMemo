@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, ArrowRight, Trash2, Terminal, Check, AlertCircle } from 'lucide-react';
+import { STANDARD_PROMPT_REGEX, CONTEXT_LINE_REGEX, COMMAND_LINE_REGEX } from '../../utils/promptPatterns';
 
 interface BulkLogImportModalProps {
   isOpen: boolean;
@@ -44,15 +45,10 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
     let currentUser = '';
     let currentDir = '';
 
-    // Regex Patterns
-    // 1. Standard: [user@host dir]$ command
-    const standardPromptRegex = /^\[?([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+(?:\s+|:)([^\]\$#]+)\]?[\$#]\s+(.*)$/;
-
-    // 2. Multi-line Context: [user@host dir][branch]
-    const contextLineRegex = /^\[([a-zA-Z0-9_\-]+)@[a-zA-Z0-9_\.-]+\s+([^\]]+)\](?:\[.*\])?$/;
-
-    // 3. Multi-line Command: > command
-    const commandLineRegex = /^>\s+(.*)$/;
+    // Regex Patterns (共通定義: utils/promptPatterns.ts)
+    const standardPromptRegex = STANDARD_PROMPT_REGEX;
+    const contextLineRegex = CONTEXT_LINE_REGEX;
+    const commandLineRegex = COMMAND_LINE_REGEX;
 
     lines.forEach((line) => {
       const trimmedLine = line.trim();
