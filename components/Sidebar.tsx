@@ -31,6 +31,11 @@ export const Sidebar: React.FC = () => {
     return Array.from(new Set(servers.map(s => s.project))).sort();
   }, [servers]);
 
+  // グローバル一覧は共通コマンドのみ表示するため、件数も共通コマンドで数える
+  const commonCommandCount = useMemo<number>(() => {
+    return commands.filter(c => !c.serverId).length;
+  }, [commands]);
+
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full shrink-0">
       <div className="p-6 flex items-center gap-3">
@@ -98,7 +103,7 @@ export const Sidebar: React.FC = () => {
               <span className="text-sm font-medium">すべて</span>
             </div>
             <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">
-              {commands.length}
+              {commonCommandCount}
             </span>
           </button>
 

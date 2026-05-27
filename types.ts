@@ -17,6 +17,7 @@ export interface CommandItem {
   output?: string;
   category: Category;
   tags: string[];
+  serverId?: string; // 未設定＝共通（グローバル）、設定あり＝そのサーバー専用
   createdAt: number;
   updatedAt: number;
 }

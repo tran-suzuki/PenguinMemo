@@ -14,12 +14,14 @@ interface UIState {
     selectedServerId: string | null;
     editingCommandId: string | null;
     editingServerId: string | null;
+    // コマンドモーダルを開いたときの初期スコープ（このサーバー専用で新規追加する場合に使用）
+    commandModalDefaultServerId: string | null;
 
     // Actions
     setViewMode: (mode: ViewMode) => void;
     setSearchQuery: (query: string) => void;
 
-    openCommandModal: (commandId?: string) => void;
+    openCommandModal: (commandId?: string, defaultServerId?: string | null) => void;
     closeCommandModal: () => void;
 
     openServerModal: (serverId?: string) => void;
@@ -42,12 +44,13 @@ export const useUIStore = create<UIState>((set) => ({
     selectedServerId: null,
     editingCommandId: null,
     editingServerId: null,
+    commandModalDefaultServerId: null,
 
     setViewMode: (mode) => set({ viewMode: mode, searchQuery: '' }),
     setSearchQuery: (query) => set({ searchQuery: query }),
 
-    openCommandModal: (commandId) => set({ isCommandModalOpen: true, editingCommandId: commandId || null }),
-    closeCommandModal: () => set({ isCommandModalOpen: false, editingCommandId: null }),
+    openCommandModal: (commandId, defaultServerId) => set({ isCommandModalOpen: true, editingCommandId: commandId || null, commandModalDefaultServerId: defaultServerId ?? null }),
+    closeCommandModal: () => set({ isCommandModalOpen: false, editingCommandId: null, commandModalDefaultServerId: null }),
 
     openServerModal: (serverId) => set({ isServerModalOpen: true, editingServerId: serverId || null }),
     closeServerModal: () => set({ isServerModalOpen: false, editingServerId: null }),

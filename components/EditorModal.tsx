@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Loader2, Save } from 'lucide-react';
 import { CommandDraft, CommandItem, Category } from '../types';
 import { generateLinuxCommand } from '../services/geminiService';
+import { useServerStore } from '../features/servers/stores/useServerStore';
 
 interface EditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (draft: CommandDraft) => void;
   initialData?: CommandItem | null;
+  defaultServerId?: string | null;
 }
 
 const emptyDraft: CommandDraft = {
@@ -15,10 +17,12 @@ const emptyDraft: CommandDraft = {
   description: '',
   output: '',
   category: Category.OTHER,
-  tags: []
+  tags: [],
+  serverId: undefined
 };
 
-export const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
+export const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, onSave, initialData, defaultServerId }) => {
+  const servers = useServerStore(state => state.servers);
   const [draft, setDraft] = useState<CommandDraft>(emptyDraft);
   const [tagInput, setTagInput] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
@@ -27,12 +31,14 @@ export const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, onSav
 
   useEffect(() => {
     if (isOpen) {
-      setDraft(initialData ? { ...initialData, output: initialData.output || '' } : emptyDraft);
+      setDraft(initialData
+        ? { ...initialData, output: initialData.output || '' }
+        : { ...emptyDraft, serverId: defaultServerId ?? undefined });
       setTagInput('');
       setAiPrompt('');
       setError(null);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, defaultServerId]);
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
@@ -121,6 +127,25 @@ export const EditorModal: React.FC<EditorModalProps> = ({ isOpen, onClose, onSav
           </div>
 
           <form id="command-form" onSubmit={handleSave} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">スコープ</label>
+              <select
+                value={draft.serverId || ''}
+                onChange={(e) => setDraft({ ...draft, serverId: e.target.value || undefined })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="">共通（全サーバーで表示）</option>
+                {servers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} 専用</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                {draft.serverId
+                  ? 'このサーバーのターミナルでのみ表示されます。'
+                  : '共通コマンドとして全サーバーのターミナルとコマンド一覧に表示されます。'}
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">コマンド <span className="text-red-400">*</span></label>
               <textarea 

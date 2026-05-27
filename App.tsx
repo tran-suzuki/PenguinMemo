@@ -35,6 +35,7 @@ export default function App() {
     closeCommandModal,
     openCommandModal,
     editingCommandId,
+    commandModalDefaultServerId,
     isServerModalOpen,
     closeServerModal,
     openServerModal,
@@ -118,6 +119,7 @@ export default function App() {
           else addCommand(draft);
         }}
         initialData={editingCommand}
+        defaultServerId={commandModalDefaultServerId}
       />
 
       <ServerModal

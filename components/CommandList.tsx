@@ -10,6 +10,8 @@ export const CommandList: React.FC = () => {
 
   const filteredCommands = useMemo(() => {
     return commands.filter(item => {
+      // グローバル一覧には共通コマンドのみ表示（サーバー専用は各サーバーのターミナルで表示）
+      if (item.serverId) return false;
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
