@@ -600,3 +600,24 @@ export function useGeminiSidebar(isGeminiOpen: boolean, modalsOpen: boolean) {
 - 各フェーズ末尾のスモーク確認項目が従来通り動作（挙動不変）
 - `ServerDetail.tsx` が 250 行以下、`electron/main.ts` が 90 行前後、`window.electronAPI` に `any` がない
 - デバッグ残骸が削除されている
+
+---
+
+## 実施結果（2026-05-27）
+
+すべての変更で `npx tsc --noEmit` と `npm run build` が成功（緑）。各コミットは挙動を変えない移植リファクタ。
+GUI の手動スモーク確認は本環境（ヘッドレス）では実施できないため、型チェック + ビルドで担保し、各フェーズ末尾のスモーク項目は実機確認を推奨。
+
+| フェーズ | 状態 | 結果 |
+|---------|------|------|
+| Phase 0 | ✅ 完了 | デバッグ残骸4ファイル削除、ベースライン確立 |
+| Phase 1 | ✅ 完了 | `shared/ipc.ts` 新設。electron 境界の `any` をゼロに |
+| Phase 2 | ✅ 完了 | `main.ts` 394行 → 100行。ハンドラを5ファイルに分割 |
+| Phase 3 | ✅ 完了 | `ServerDetail.tsx` 982行 → 466行（52%減）。Header/Credentials/Gemini/Context/Views 抽出 |
+| Phase 4 | ✅ 完了 | `ServerModal.tsx` 595行 → 359行。3セクション抽出 + パスワード表示フック統一 |
+| Phase 5.3（正規表現） | ✅ 完了 | プロンプト検出正規表現を `utils/promptPatterns.ts` に共通化 |
+| Phase 5.1（storage統一） | ⏸ 見送り | persist のバックエンド変更はユーザーデータ移行リスクがあり、実機テストなしでは安全に実施できないため見送り |
+| Phase 5.2（WebApp/Domain ストア分離） | ⏸ 見送り | データモデルは不変のままで価値が低く、優先度🟢のため見送り |
+| Phase 5.3（reorder共通化） | ⏸ 見送り | ストアロジックに触れるため、リスク対効果から見送り |
+
+`ServerDetail.tsx` の目標「250行以下」は未達（466行）。ヘッダ抽出で最大の改善は達成したが、残りはハンドラ群が占める。さらなる削減には `useServerDetailController` 等へのハンドラ抽出が必要で、状態結合が強くリスクが高いため今回は見送った。
