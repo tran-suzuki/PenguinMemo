@@ -1,36 +1,41 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { ElectronAPI } from '../shared/ipc'
 
 // --------- Expose some API to the Renderer process ---------
 console.log('Preload script executing...');
-contextBridge.exposeInMainWorld('electronAPI', {
-    on: (channel: string, callback: (data: any) => void) => {
-        const subscription = (_event: any, ...args: any[]) => (callback as any)(...args);
+
+const api: ElectronAPI = {
+    on: (channel, callback) => {
+        const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) =>
+            (callback as unknown as (...a: unknown[]) => void)(...args);
         ipcRenderer.on(channel, subscription);
         return () => ipcRenderer.removeListener(channel, subscription);
     },
-    off: (channel: string, listener: (...args: any[]) => void) => {
-        ipcRenderer.removeListener(channel, listener);
+    off: (channel, listener) => {
+        ipcRenderer.removeListener(channel, listener as (...args: unknown[]) => void);
     },
-    connectSSH: (config: any) => ipcRenderer.invoke('ssh-connect', config),
-    disconnectSSH: (id: string) => ipcRenderer.send('ssh-disconnect', { id }),
+    connectSSH: (config) => ipcRenderer.invoke('ssh-connect', config),
+    disconnectSSH: (id) => ipcRenderer.send('ssh-disconnect', { id }),
 
     // SFTP
-    sftpList: (id: string, path: string) => ipcRenderer.invoke('sftp-list', { id, path }),
-    sftpUpload: (id: string, localPath: string, remotePath: string) => ipcRenderer.invoke('sftp-upload', { id, localPath, remotePath }),
-    sftpDownload: (id: string, remotePath: string, localPath: string) => ipcRenderer.invoke('sftp-download', { id, remotePath, localPath }),
+    sftpList: (id, path) => ipcRenderer.invoke('sftp-list', { id, path }),
+    sftpUpload: (id, localPath, remotePath) => ipcRenderer.invoke('sftp-upload', { id, localPath, remotePath }),
+    sftpDownload: (id, remotePath, localPath) => ipcRenderer.invoke('sftp-download', { id, remotePath, localPath }),
 
     // Dialogs
     showOpenDialog: () => ipcRenderer.invoke('dialog:open-file'),
-    showSaveDialog: (defaultPath: string) => ipcRenderer.invoke('dialog:save-file', { defaultPath }),
+    showSaveDialog: (defaultPath) => ipcRenderer.invoke('dialog:save-file', { defaultPath }),
 
-    sendSSHData: (id: string, data: string) => ipcRenderer.send('ssh-data', { id, data }),
-    resizeSSH: (id: string, cols: number, rows: number) => ipcRenderer.send('ssh-resize', { id, cols, rows }),
+    sendSSHData: (id, data) => ipcRenderer.send('ssh-data', { id, data }),
+    resizeSSH: (id, cols, rows) => ipcRenderer.send('ssh-resize', { id, cols, rows }),
 
     // Gemini
     openGemini: () => ipcRenderer.send('gemini:open'),
-    resizeGemini: (bounds: { x: number, y: number, width: number, height: number }) => ipcRenderer.send('gemini:resize', bounds),
+    resizeGemini: (bounds) => ipcRenderer.send('gemini:resize', bounds),
     closeGemini: () => ipcRenderer.send('gemini:close'),
 
     // Shell
-    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', { url }),
-})
+    openExternal: (url) => ipcRenderer.invoke('shell:open-external', { url }),
+}
+
+contextBridge.exposeInMainWorld('electronAPI', api)
