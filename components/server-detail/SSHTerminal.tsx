@@ -23,8 +23,20 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
     const [isConnecting, setIsConnecting] = useState(false);
     const openServerModal = useUIStore(state => state.openServerModal);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+    // 右クリック時点の選択テキストを保持する。
+    // メニュー項目クリック時に getSelection() を呼ぶと、その間に選択状態が
+    // 変化して空になる場合があるため、メニューを開いた瞬間に確定させる。
+    const selectionRef = useRef('');
+    const [notice, setNotice] = useState<string | null>(null);
+    const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isConnectedRef = useRef(false);
+
+    const showNotice = (message: string) => {
+        setNotice(message);
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = setTimeout(() => setNotice(null), 2500);
+    };
 
     useEffect(() => {
         if (!terminalRef.current || !window.electronAPI) return;
@@ -159,6 +171,8 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
     // Handle Context Menu
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
+        // メニューを開いた瞬間の選択を確定（右クリックではxtermの選択は解除されない）
+        selectionRef.current = xtermRef.current?.getSelection() ?? '';
         const menuWidth = 192; // w-48
         const menuHeight = 180; // Approximate height
 
@@ -183,12 +197,17 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
         return () => window.removeEventListener('click', handleClick);
     }, []);
 
+    // 通知トーストのタイマーをアンマウント時に解放
+    useEffect(() => () => {
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    }, []);
+
     const handleCopy = () => {
-        if (xtermRef.current) {
-            const selection = xtermRef.current.getSelection();
-            if (selection) {
-                navigator.clipboard.writeText(selection);
-            }
+        const selection = selectionRef.current;
+        if (selection) {
+            navigator.clipboard.writeText(selection);
+        } else {
+            showNotice('コピーするテキストを選択してください');
         }
         setContextMenu(null);
     };
@@ -210,21 +229,21 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
     };
 
     const handleImportToLogs = () => {
-        if (xtermRef.current && onImportLogs) {
-            const selection = xtermRef.current.getSelection();
-            if (selection) {
-                onImportLogs(selection);
-            }
+        const selection = selectionRef.current;
+        if (!selection) {
+            showNotice('インポートする範囲を選択してください');
+        } else if (onImportLogs) {
+            onImportLogs(selection);
         }
         setContextMenu(null);
     };
 
     const handleImportToConfigs = () => {
-        if (xtermRef.current && onImportConfigs) {
-            const selection = xtermRef.current.getSelection();
-            if (selection) {
-                onImportConfigs(selection);
-            }
+        const selection = selectionRef.current;
+        if (!selection) {
+            showNotice('インポートする範囲を選択してください');
+        } else if (onImportConfigs) {
+            onImportConfigs(selection);
         }
         setContextMenu(null);
     };
@@ -259,6 +278,12 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
                         <Loader2 size={32} className="animate-spin text-blue-400" />
                         <span className="text-slate-300 font-medium">Connecting to {server.host}...</span>
                     </div>
+                </div>
+            )}
+
+            {notice && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-slate-700/95 text-white px-4 py-2 rounded shadow-lg text-sm">
+                    {notice}
                 </div>
             )}
 
