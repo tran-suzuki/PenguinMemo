@@ -61,6 +61,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   // Manual Import State
   const [isImportLogsModalOpen, setIsImportLogsModalOpen] = useState(false);
   const [importLogContent, setImportLogContent] = useState('');
+  const [importLogCommand, setImportLogCommand] = useState('');
 
 
   // Gemini Sidebar State
@@ -288,7 +289,42 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   };
 
   const handleManualImportLogs = (content: string) => {
-    setImportLogContent(content);
+    // Try to parse command from content
+    // Heuristic: Look for lines starting with prompts like $, #, >, or user@host
+    const lines = content.split('\n');
+    let command = '';
+    let output = content;
+
+    // Simple heuristic: if the first line looks like a prompt, extract the command
+    const firstLine = lines[0].trim();
+    // Regex for common prompts:
+    // [user@host ~]$ command
+    // user@host:~$ command
+    // $ command
+    // > command
+    const promptRegex = /^(\[?[\w@:.~-]+\]?[$#>]|\$|>) (.*)/;
+    const match = firstLine.match(promptRegex);
+
+    if (match) {
+      command = match[2];
+      // Remove the first line from output if it's just the command
+      if (lines.length > 1) {
+        output = lines.slice(1).join('\n');
+      } else {
+        output = ''; // Command only?
+      }
+    } else {
+      // Fallback: Use first line as command if it's short, otherwise "Manual Import"
+      if (firstLine.length < 50 && lines.length > 1) {
+        command = firstLine;
+        output = lines.slice(1).join('\n');
+      } else {
+        command = 'Manual Import';
+      }
+    }
+
+    setImportLogContent(output);
+    setImportLogCommand(command);
     setIsImportLogsModalOpen(true);
   };
 
@@ -306,7 +342,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
     }
   };
 
-  const handleConfirmImportLogs = (threadId: string, content: string, newThreadTitle?: string) => {
+  const handleConfirmImportLogs = (threadId: string, command: string, content: string, newThreadTitle?: string) => {
     let targetThreadId = threadId;
 
     if (threadId === 'new' && newThreadTitle) {
@@ -316,16 +352,9 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
       setActiveThreadId(threadId);
     }
 
-    // Add log to thread
-    // We'll treat this as a "command" output, but maybe we should split it?
-    // For simplicity, let's add it as a note or a generic log entry
-    // Since our log structure requires a command, we can use a placeholder or the first line
-    const lines = content.split('\n');
-    const firstLine = lines[0].length > 50 ? lines[0].substring(0, 50) + '...' : lines[0];
-
     addLog(
       targetThreadId,
-      'Manual Import',
+      command,
       content,
       'User'
     );
@@ -938,13 +967,16 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
         }}
       />
 
-      <ImportToLogsModal
-        isOpen={isImportLogsModalOpen}
-        onClose={() => setIsImportLogsModalOpen(false)}
-        initialContent={importLogContent}
-        threads={serverThreads}
-        onImport={handleConfirmImportLogs}
-      />
+      {isImportLogsModalOpen && (
+        <ImportToLogsModal
+          isOpen={isImportLogsModalOpen}
+          onClose={() => setIsImportLogsModalOpen(false)}
+          initialContent={importLogContent}
+          initialCommand={importLogCommand}
+          threads={serverThreads}
+          onImport={handleConfirmImportLogs}
+        />
+      )}
     </div >
   );
 };

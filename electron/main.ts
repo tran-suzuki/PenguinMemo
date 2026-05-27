@@ -107,7 +107,7 @@ ipcMain.handle('ssh-connect', async (event, { id, host, port, username, password
         conn.on('ready', () => {
             console.log(`SSH Client :: ready (${id})`);
 
-            conn.shell((err, stream) => {
+            conn.shell({ term: 'xterm-256color' }, (err, stream) => {
                 if (err) {
                     reject(err.message);
                     return;

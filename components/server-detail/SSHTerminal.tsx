@@ -45,6 +45,33 @@ export const SSHTerminal: React.FC<SSHTerminalProps> = ({ server, terminalId, on
 
         term.loadAddon(fitAddon);
         term.loadAddon(webLinksAddon);
+
+        // Custom key event handler for special keys
+        term.attachCustomKeyEventHandler((arg) => {
+            if (arg.type !== 'keydown') {
+                return true;
+            }
+
+            if (arg.key === 'Home') {
+                window.electronAPI?.sendSSHData(terminalId, '\x1b[H');
+                return false;
+            }
+            if (arg.key === 'End') {
+                window.electronAPI?.sendSSHData(terminalId, '\x1b[F');
+                return false;
+            }
+            if (arg.key === 'PageUp') {
+                window.electronAPI?.sendSSHData(terminalId, '\x1b[5~');
+                return false;
+            }
+            if (arg.key === 'PageDown') {
+                window.electronAPI?.sendSSHData(terminalId, '\x1b[6~');
+                return false;
+            }
+
+            return true;
+        });
+
         term.open(terminalRef.current);
 
         // Initial fit

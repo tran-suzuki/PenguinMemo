@@ -13,6 +13,7 @@ interface CommandState {
     updateCommand: (id: string, draft: CommandDraft) => void;
     deleteCommand: (id: string) => void;
     importCommands: (newCommands: CommandItem[]) => void;
+    mergeCommands: (newCommands: CommandItem[]) => void;
 
     // Computed/Helpers can be implemented as getters in components or derived state here if needed
     // For simplicity, we'll do filtering in the selector or component
@@ -46,6 +47,14 @@ export const useCommandStore = create<CommandState>()(
             })),
 
             importCommands: (newCommands) => set({ commands: newCommands }),
+
+            mergeCommands: (newCommands) => set((state) => {
+                const commandMap = new Map(state.commands.map(c => [c.id, c]));
+                newCommands.forEach(cmd => {
+                    commandMap.set(cmd.id, cmd);
+                });
+                return { commands: Array.from(commandMap.values()) };
+            }),
         }),
         {
             name: 'penguin-memo-commands-store',

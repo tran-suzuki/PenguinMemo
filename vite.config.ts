@@ -88,6 +88,10 @@ export default defineConfig(({ mode }) => {
           }
         }
       }
+    },
+    server: {
+      port: 5174,
+      strictPort: false,
     }
   };
 });

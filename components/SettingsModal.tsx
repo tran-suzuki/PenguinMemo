@@ -16,15 +16,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Stores
-  const { commands, importCommands } = useCommandStore();
-  const { servers, mergeServers } = useServerStore();
-  const { threads, logs, mergeLogsData } = useLogStore();
-  const { configs, importConfigs } = useConfigStore();
+  const { importCommands, mergeCommands } = useCommandStore();
+  const { mergeServers } = useServerStore();
+  const { mergeLogsData } = useLogStore();
+  const { importConfigs, mergeConfigs } = useConfigStore();
 
   if (!isOpen) return null;
 
   const handleExport = () => {
     try {
+      // Use getState() to ensure we get the latest data even if component hasn't re-rendered
+      const commands = useCommandStore.getState().commands;
+      const servers = useServerStore.getState().servers;
+      const { threads, logs } = useLogStore.getState();
+      const configs = useConfigStore.getState().configs;
+
       const json = exportData(commands, servers, threads, logs, configs);
       const dateStr = new Date().toISOString().split('T')[0];
       downloadBackup(json, `penguin-memo-backup-${dateStr}.json`);
@@ -58,11 +64,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           configs: newConfigs
         } = processImportData(json);
 
-        // Merge strategy: Append imported data to existing data
-        importCommands([...commands, ...newCmds]);
+        // Merge strategy: Merge by ID to prevent duplicates
+        mergeCommands(newCmds);
         mergeServers(newSrvs);
         mergeLogsData(newThreads, newLogs);
-        importConfigs([...configs, ...(newConfigs || [])]);
+        mergeConfigs(newConfigs || []);
 
         setMessage({ type: 'success', text: `インポート成功: コマンド${newCmds.length}件, サーバー${newSrvs.length}件` });
       } catch (err) {

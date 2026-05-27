@@ -13,6 +13,7 @@ interface ConfigState {
     deleteConfig: (id: string) => void;
     deleteConfigsByServerId: (serverId: string) => void;
     importConfigs: (configs: ServerConfig[]) => void;
+    mergeConfigs: (configs: ServerConfig[]) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
@@ -46,6 +47,14 @@ export const useConfigStore = create<ConfigState>()(
             })),
 
             importConfigs: (configs) => set({ configs: configs || [] }),
+
+            mergeConfigs: (newConfigs) => set((state) => {
+                const configMap = new Map((state.configs || []).map(c => [c.id, c]));
+                (newConfigs || []).forEach(config => {
+                    configMap.set(config.id, config);
+                });
+                return { configs: Array.from(configMap.values()) };
+            }),
         }),
         {
             name: 'penguin-memo-configs',

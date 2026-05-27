@@ -6,18 +6,21 @@ interface ImportToLogsModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialContent: string;
+    initialCommand?: string;
     threads: ServerThread[];
-    onImport: (threadId: string, content: string, newThreadTitle?: string) => void;
+    onImport: (threadId: string, command: string, content: string, newThreadTitle?: string) => void;
 }
 
 export const ImportToLogsModal: React.FC<ImportToLogsModalProps> = ({
     isOpen,
     onClose,
     initialContent,
+    initialCommand = '',
     threads,
     onImport
 }) => {
     const [content, setContent] = useState(initialContent);
+    const [command, setCommand] = useState(initialCommand);
     const [selectedThreadId, setSelectedThreadId] = useState<string>('');
     const [isNewThread, setIsNewThread] = useState(false);
     const [newThreadTitle, setNewThreadTitle] = useState('');
@@ -25,6 +28,7 @@ export const ImportToLogsModal: React.FC<ImportToLogsModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             setContent(initialContent);
+            setCommand(initialCommand);
             // Default to first thread if available, otherwise new thread
             if (threads.length > 0) {
                 setSelectedThreadId(threads[0].id);
@@ -34,7 +38,7 @@ export const ImportToLogsModal: React.FC<ImportToLogsModalProps> = ({
             }
             setNewThreadTitle('');
         }
-    }, [isOpen, initialContent, threads]);
+    }, [isOpen, initialContent, initialCommand, threads]);
 
     if (!isOpen) return null;
 
@@ -47,9 +51,14 @@ export const ImportToLogsModal: React.FC<ImportToLogsModalProps> = ({
             alert('Please select a thread');
             return;
         }
+        if (!command.trim()) {
+            alert('Please enter a command');
+            return;
+        }
 
         onImport(
             isNewThread ? 'new' : selectedThreadId,
+            command,
             content,
             isNewThread ? newThreadTitle : undefined
         );
@@ -120,6 +129,18 @@ export const ImportToLogsModal: React.FC<ImportToLogsModalProps> = ({
                                 ))}
                             </select>
                         )}
+                    </div>
+
+                    {/* Command Input */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-300">Command</label>
+                        <input
+                            type="text"
+                            value={command}
+                            onChange={(e) => setCommand(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm font-mono text-white focus:outline-none focus:border-blue-500 transition-colors"
+                            placeholder="e.g. ls -la"
+                        />
                     </div>
 
                     {/* Content Preview/Edit */}
