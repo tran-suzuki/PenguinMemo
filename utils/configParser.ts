@@ -28,7 +28,11 @@ export const detectType = (path: string): string => {
 export const parseConfigsFromOutput = (rawInput: string): ParsedConfig[] => {
     if (!rawInput.trim()) return [];
 
-    const lines = rawInput.split('\n');
+    // 改行コードを正規化してから分割する。
+    // Windowsのクリップボード(CRLF)を貼り付けると各行末に \r が残り、
+    // プロンプト検出正規表現の (.*)$ が \r の手前でマッチできず
+    // pwd/cat 行を検出できなくなる（0件になる）ため。
+    const lines = rawInput.split(/\r\n|\r|\n/);
     const configs: ParsedConfig[] = [];
 
     let currentDir = '';

@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, Trash2, FileText, Check, AlertCircle, Folder } from 'lucide-react';
+import { parseConfigsFromOutput, ParsedConfig } from '../../utils/configParser';
 
 interface BulkConfigImportModalProps {
     isOpen: boolean;
     onClose: () => void;
     onImport: (entries: { path: string; content: string; type: string }[]) => void;
+    // ターミナルからの「Import to Configs」で選択テキストを初期表示する
+    initialContent?: string;
 }
 
-import { parseConfigsFromOutput, ParsedConfig } from '../../utils/configParser';
-
-export const BulkConfigImportModal: React.FC<BulkConfigImportModalProps> = ({ isOpen, onClose, onImport }) => {
+export const BulkConfigImportModal: React.FC<BulkConfigImportModalProps> = ({ isOpen, onClose, onImport, initialContent = '' }) => {
     const [step, setStep] = useState<'input' | 'preview'>('input');
     const [rawInput, setRawInput] = useState('');
     const [parsedConfigs, setParsedConfigs] = useState<ParsedConfig[]>([]);
+
+    // 開いたときに初期内容を反映（ヘッダの一括インポートは空、ターミナル選択時は選択内容）
+    useEffect(() => {
+        if (isOpen) {
+            setRawInput(initialContent);
+            setStep('input');
+            setParsedConfigs([]);
+        }
+    }, [isOpen, initialContent]);
 
     if (!isOpen) return null;
 

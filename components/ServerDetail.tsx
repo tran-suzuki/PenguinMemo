@@ -9,7 +9,6 @@ import { BulkLogImportModal } from './server-detail/BulkLogImportModal';
 import { BulkConfigImportModal } from './server-detail/BulkConfigImportModal';
 import { LinkOpenConfirmModal } from './LinkOpenConfirmModal';
 import { ImportToLogsModal } from './server-detail/ImportToLogsModal';
-import { parseConfigsFromOutput } from '../utils/configParser';
 import { ConfigList } from './server-detail/ConfigList';
 import { SFTPFileManager } from './server-detail/SFTPFileManager';
 import { TerminalManager } from './server-detail/TerminalManager';
@@ -61,6 +60,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   const [isImportLogsModalOpen, setIsImportLogsModalOpen] = useState(false);
   const [importLogContent, setImportLogContent] = useState('');
   const [importLogCommand, setImportLogCommand] = useState('');
+  // ターミナルの「Import to Configs」で一括インポートモーダルに渡す初期内容
+  const [bulkConfigInitialContent, setBulkConfigInitialContent] = useState('');
 
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
@@ -199,6 +200,8 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   };
 
   const handleManualImportLogs = (content: string) => {
+    // 改行コードを正規化（Windows由来のCRLFで \r が混入するのを防ぐ）
+    content = content.replace(/\r\n|\r/g, '\n');
     // Try to parse command from content
     // Heuristic: Look for lines starting with prompts like $, #, >, or user@host
     const lines = content.split('\n');
@@ -239,17 +242,10 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
   };
 
   const handleManualImportConfigs = (content: string) => {
-    // Reuse existing bulk config import logic
-    // We need to parse it first to see if it matches our format
-    const configs = parseConfigsFromOutput(content);
-    if (configs.length > 0) {
-      handleBulkConfigImport(configs);
-      alert(`${configs.length} config(s) imported successfully.`);
-    } else {
-      // If no configs detected, maybe open the bulk modal with this content?
-      // For now, let's just alert
-      alert('No valid config format detected in selection.\nExpected format:\n[user@host path]$ cat filename\ncontent...');
-    }
+    // 選択テキストを一括インポートモーダルに渡して開く。
+    // ユーザーが内容を確認し「解析する」で pwd/cat 形式を抽出できる。
+    setBulkConfigInitialContent(content);
+    setIsBulkConfigModalOpen(true);
   };
 
   const handleConfirmImportLogs = (threadId: string, command: string, content: string, newThreadTitle?: string) => {
@@ -292,7 +288,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
           onBack={onBack}
           activeThread={activeThread}
           onOpenBulkModal={() => setIsBulkModalOpen(true)}
-          onOpenBulkConfigModal={() => setIsBulkConfigModalOpen(true)}
+          onOpenBulkConfigModal={() => { setBulkConfigInitialContent(''); setIsBulkConfigModalOpen(true); }}
           showExportMenu={showExportMenu}
           onToggleExportMenu={() => setShowExportMenu(!showExportMenu)}
           onExport={handleExport}
@@ -428,6 +424,7 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
           isOpen={isBulkConfigModalOpen}
           onClose={() => setIsBulkConfigModalOpen(false)}
           onImport={handleBulkConfigImport}
+          initialContent={bulkConfigInitialContent}
         />
 
         <LinkOpenConfirmModal

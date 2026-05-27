@@ -37,7 +37,9 @@ export const BulkLogImportModal: React.FC<BulkLogImportModalProps> = ({ isOpen, 
   const parseLogs = () => {
     if (!rawInput.trim()) return;
 
-    const lines = rawInput.split('\n');
+    // 改行コードを正規化（Windowsのクリップボードは CRLF。\r が残ると
+    // プロンプト検出の正規表現がマッチせず検出0件になる）
+    const lines = rawInput.split(/\r\n|\r|\n/);
     const entries: ParsedEntry[] = [];
 
     let currentCommand = '';
