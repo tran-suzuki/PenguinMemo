@@ -1,22 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ServerItem, ServerThread, ServerCommandLog } from '../types';
-import { Terminal, ChevronUp } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import { useLogStore } from '../features/command-logs/stores/useLogStore';
 import { useConfigStore } from '../features/configs/stores/useConfigStore';
 import { useUIStore } from '../features/ui/stores/useUIStore';
 import { ThreadList } from './server-detail/ThreadList';
-import { LogStream } from './server-detail/LogStream';
-import { LogInputArea } from './server-detail/LogInputArea';
 import { BulkLogImportModal } from './server-detail/BulkLogImportModal';
 import { BulkConfigImportModal } from './server-detail/BulkConfigImportModal';
 import { LinkOpenConfirmModal } from './LinkOpenConfirmModal';
 import { ImportToLogsModal } from './server-detail/ImportToLogsModal';
-import { SearchResults } from './server-detail/SearchResults';
 import { parseConfigsFromOutput } from '../utils/configParser';
 import { ConfigList } from './server-detail/ConfigList';
-import { ConfigEditor } from './server-detail/ConfigEditor';
-import { ConfigSearchResults } from './server-detail/ConfigSearchResults';
-import { WebAppList } from './server-detail/WebAppList';
 import { SFTPFileManager } from './server-detail/SFTPFileManager';
 import { TerminalManager } from './server-detail/TerminalManager';
 import { TerminalSidebar } from './server-detail/TerminalSidebar';
@@ -26,6 +20,9 @@ import { ServerDetailProvider, ServerViewMode } from './server-detail/ServerDeta
 import { ServerDetailHeader } from './server-detail/ServerDetailHeader';
 import { GeminiSidebar } from './server-detail/GeminiSidebar';
 import { useGeminiSidebar } from './server-detail/useGeminiSidebar';
+import { LogsView } from './server-detail/views/LogsView';
+import { ConfigsView } from './server-detail/views/ConfigsView';
+import { WebAppsView } from './server-detail/views/WebAppsView';
 
 interface ServerDetailProps {
   server: ServerItem;
@@ -371,72 +368,42 @@ export const ServerDetail: React.FC<ServerDetailProps> = ({ server, onBack, onUp
 
             {/* Other Views */}
             {viewMode === 'configs' ? (
-              searchQuery ? (
-                <ConfigSearchResults
-                  results={filteredConfigs}
-                  onSelect={(id) => {
-                    setActiveConfigId(id);
-                    setSearchQuery('');
-                  }}
-                />
-              ) : (
-                <ConfigEditor
-                  config={activeConfigId ? serverConfigs.find(c => c.id === activeConfigId) || null : null}
-                  onSave={handleSaveConfig}
-                  onDelete={activeConfigId ? () => {
-                    deleteConfig(activeConfigId);
-                    setActiveConfigId(null);
-                  } : undefined}
-                  isNew={isCreatingConfig}
-                />
-              )
+              <ConfigsView
+                searchQuery={searchQuery}
+                filteredConfigs={filteredConfigs}
+                serverConfigs={serverConfigs}
+                activeConfigId={activeConfigId}
+                isCreatingConfig={isCreatingConfig}
+                onSelectSearchResult={(id) => {
+                  setActiveConfigId(id);
+                  setSearchQuery('');
+                }}
+                onSaveConfig={handleSaveConfig}
+                onDeleteActiveConfig={activeConfigId ? () => {
+                  deleteConfig(activeConfigId);
+                  setActiveConfigId(null);
+                } : undefined}
+              />
             ) : viewMode === 'webapps' ? (
-              <div className="flex-1 overflow-y-auto p-6">
-                <WebAppList serverId={server.id} webApps={server.webApps || []} />
-              </div>
+              <WebAppsView serverId={server.id} webApps={server.webApps || []} />
             ) : viewMode === 'logs' ? (
-              searchQuery ? (
-                <SearchResults
-                  results={searchResults}
-                  onSelectThread={(id) => {
-                    setActiveThreadId(id);
-                    setSearchQuery('');
-                  }}
-                />
-              ) : !activeThreadId ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
-                  <Terminal size={48} className="opacity-20 mb-4" />
-                  <p>スレッドを選択または作成してください</p>
-                </div>
-              ) : (
-                <>
-                  <LogStream
-                    logs={activeLogs}
-                    sessionStartTime={serverThreads.find(t => t.id === activeThreadId)?.createdAt}
-                    onDeleteLog={deleteLog}
-                  />
-
-                  {isInputOpen ? (
-                    <div className="overflow-x-hidden w-full">
-                      <LogInputArea
-                        onAddLog={handleAddLog}
-                        onClose={() => setIsInputOpen(false)}
-                        initialDirectory={currentDirectory}
-                      />
-                    </div>
-                  ) : (
-                    <div className="border-t border-slate-800 bg-slate-900 p-2 shrink-0 flex justify-center z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
-                      <button
-                        onClick={() => setIsInputOpen(true)}
-                        className="w-full max-w-4xl mx-auto flex items-center justify-center gap-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800 py-2 rounded-lg transition-all font-medium text-sm"
-                      >
-                        <ChevronUp size={16} />
-                        コマンド入力を開く
-                      </button>
-                    </div>
-                  )}
-                </>
-              )
+              <LogsView
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                onSelectThread={(id) => {
+                  setActiveThreadId(id);
+                  setSearchQuery('');
+                }}
+                activeThreadId={activeThreadId}
+                activeLogs={activeLogs}
+                sessionStartTime={serverThreads.find(t => t.id === activeThreadId)?.createdAt}
+                onDeleteLog={deleteLog}
+                isInputOpen={isInputOpen}
+                onAddLog={handleAddLog}
+                onCloseInput={() => setIsInputOpen(false)}
+                onOpenInput={() => setIsInputOpen(true)}
+                currentDirectory={currentDirectory}
+              />
             ) : null}
           </main>
 
